@@ -7,9 +7,12 @@ PROJECT_PATH = os.getcwd()
 SOURCE_PATH = os.path.join(PROJECT_PATH, "src")
 sys.path.append(SOURCE_PATH)
 
-from models.models import Community, PostDTO
+from models.models import Community, PostDTO, CommunityDTO
 
 utc_now = datetime.utcnow()
+
+TEST_COMMUNITY_DTO = CommunityDTO(ident="test_subreddit", title="Testy", description="We have all the testies.",
+                                  icon='https://google.com/?search=balls.gif', nsfw=True)
 
 TEST_COMMUNITY = Community(id=1, ident="test_subreddit", lemmy_id=665, nsfw=False, sorting='new', enabled=True)
 TEST_POSTS = [

@@ -3,6 +3,7 @@ import time
 from datetime import datetime, timedelta
 from operator import attrgetter
 from typing import Type, List, Optional
+from urllib.parse import urlparse
 
 from requests import HTTPError
 from sqlalchemy import or_
@@ -27,6 +28,7 @@ class Syncer:
         self._logger = logging.getLogger(__name__)
         self.interval = interval
         self.request_community = request_community
+        self.lemmy_hostname: str = urlparse(lemmy.base_url).hostname
 
     def next_scrape_community(self) -> Optional[Type[Community]]:
         """Get the next community that is due for scraping."""
@@ -133,8 +135,16 @@ class Syncer:
         posts = self._get_new_sub_requests()
         for post in posts:
             self._logger.info('New subreddit request received')
-            community = self._answer_sub_request(post)
-            if community:
+
+            try:
+                community = self.get_community_details_from_post(post)
+            except SubredditRequestException as e:
+                self._logger.error(str(e))
+                self._lemmy.create_comment(post_id=post['post']['id'], content=str(e))
+                self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
+                continue
+
+            try:
                 lemmy_community = self._lemmy.create_community(
                     name=community.ident,
                     title=community.title,
@@ -152,12 +162,21 @@ class Syncer:
                 )
                 self._db.add(db_community)
                 self._db.commit()
-
+            except Exception as e:
+                self._logger.error(f'Error trying to create new community {community}: {str(e)}')
                 self._lemmy.create_comment(
                     post_id=post['post']['id'],
-                    content=f"I'll get right on that. Check out [/c/{community.ident}](/c/{community.ident}@lemmit.online)!"
+                    content="Something went terribly wrong trying to create that community. "
+                            f"[@admin@{self.lemmy_hostname}](https://{self.lemmy_hostname}/u/admin) I need an adult! :("
                 )
-                self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
+                continue
+
+            self._lemmy.create_comment(
+                post_id=post['post']['id'],
+                content=f"I'll get right on that. Check out "
+                        f"{LemmyAPI.community_uri(community.ident, self.lemmy_hostname)}!"
+            )
+            self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
         self.new_sub_check = int(time.time())
         self._logger.info('Done.')
 
@@ -189,41 +208,47 @@ The original was posted on [/r/{community.ident}]({post.reddit_link.replace('htt
 
         return ret_posts
 
-    def _answer_sub_request(self, post: dict) -> Optional[CommunityDTO]:
+    def get_community_details_from_post(self, post: dict) -> CommunityDTO:
         """Create a new Lemmy Community based on request post"""
-        # Try and extract the subreddit
+        # Try and extract the identifier
         ident = None
-        community = None
         if post['post']['url']:
             try:
-                ident = RedditReader.get_subreddit_ident(post['post']['url'])
+                ident = RedditReader.get_subreddit_ident(post['post']['url']).lower()
             except ValueError:
                 pass
         elif post['post']['name']:
             try:
-                ident = RedditReader.get_subreddit_ident(post['post']['name'])
+                ident = RedditReader.get_subreddit_ident(post['post']['name']).lower()
             except ValueError:
                 pass
 
-        # TODO: this should raise proper exceptions
-        if ident:
-            # Figure out if subreddit exists and is open
-            community = self._reddit_reader.get_subreddit_info(ident)
-            if not community:
-                self._logger.warning(f'Subreddit {ident} is not open for business')
-                self._lemmy.create_comment(
-                    post_id=post['post']['id'],
-                    content=f"I cannot access the *{ident}* subreddit. Make another request when it is accessible."
-                )
-            else:
-                self._logger.info(f'Success! Let\'s clone the sh!t out of {ident}')
-                return community
-        else:
-            self._logger.warning(f"Couldn't determine subreddit for request {post['post']['ap_id']}")
-            self._lemmy.create_comment(
-                post_id=post['post']['id'],
-                content=f"I don't know which subreddit you mean."
+        if not ident:
+            raise SubredditRequestException(
+                f"Couldn't determine subreddit. Try requesting with both the `url` "
+                f"(https://old.reddit.com/r/whatever) and `title` (/r/whatever)."
             )
 
-        self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
+        # Skip existing
+        if self.community_exists(ident):
+            raise SubredditRequestException(
+                f"There already is a '{ident}' community at {LemmyAPI.community_uri(ident, self.lemmy_hostname)}!"
+            )
+
+        # Figure out if subreddit exists and is open
+        community = self._reddit_reader.get_subreddit_info(ident)
+        if not community:
+            raise SubredditRequestException(
+                f'I cannot access https://old.reddit.com/r/{ident}. '
+                'Does it exist and is it not private? Otherwise make a new request again later.'
+            )
+        self._logger.info(f"Success! Let's clone the sh!t out of {ident}")
+
         return community
+
+    def community_exists(self, ident: str) -> bool:
+        return self._db.query(Community).filter_by(ident=ident).first() is not None
+
+
+class SubredditRequestException(Exception):
+    """Exception when trying to add a new subreddit"""
