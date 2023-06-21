@@ -17,7 +17,7 @@ _DELAY_TIME = 3  # This many seconds between requests
 
 
 class RedditReader:
-    _SUBREDDIT_REGEX = re.compile(r'(.*reddit\.com|^)/r/([^/]+).*')
+    _SUBREDDIT_REGEX = re.compile(r'(.*reddit\.com/|^/?)r/([^/]+).*')
     _STRIP_EMPTY_REGEX = re.compile(r'\n{3,}')
     _next_request_after: int  # Updated on requests to reddit to prevent throttling
 
@@ -83,7 +83,7 @@ class RedditReader:
 
     def get_subreddit_info(self, ident: str) -> Optional[CommunityDTO]:
         sub_url = f"https://old.reddit.com/r/{ident}/"
-        response = self._request('GET', sub_url)
+        response = self._request('GET', sub_url, allow_redirects=False)
         if response.status_code != 200:
             return None
 
@@ -125,9 +125,9 @@ class RedditReader:
 
         return self._STRIP_EMPTY_REGEX.sub('\n\n', markdown) if markdown else None
 
-    @staticmethod
-    def is_sub_nsfw(ident: str) -> bool:
-        nsfw_response = requests.get(f"https://old.reddit.com/r/{ident}", headers={'User-Agent': USER_AGENT}, cookies=None)
+    def is_sub_nsfw(self, ident: str) -> bool:
+        self.logger.debug(f"Running NSFW check on {ident}")
+        nsfw_response = requests.get(f"https://old.reddit.com/r/{ident}/", headers={'User-Agent': USER_AGENT})
 
         return 'over18' in nsfw_response.url
 

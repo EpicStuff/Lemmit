@@ -9,8 +9,7 @@ A Reddit-to-Lemmy cross-poster.
 ## To do:
 - MORE TESTS!
 - Follow links on "bestof" posts: If post has no body, and "external link" is also reddit, retrieve body from external link.
-- Harden Subreddit-Request handling
-  - (skip existing. Duh!)
+- Increase delay between posts when initially setting up a community (benefits both scraping and federating)
 - Create a watcher that periodically checks for updates (edits / deletes) on reddit post and sync those:
   * 1 hour, day, week, month after posting.
   * Automatically when reported (Unless queued in last hour, to prevent abuse)

@@ -84,6 +84,11 @@ class LemmyAPI:
         if self.__jwt == '' or self.__is_token_near_expiry():
             self.login()
 
+    @staticmethod
+    def community_uri(ident: str, hostname: str):
+        """Creates a markdown-link relative link to a specific community."""
+        return f"[/c/{ident}@{hostname}](/c/{ident}@{hostname})"
+
     def __is_token_near_expiry(self) -> bool:
         if self.__jwt == '':
             return True
