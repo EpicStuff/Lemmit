@@ -12,7 +12,7 @@ from lemmy.api import LemmyAPI
 from models.models import Community, PostDTO, Post, CommunityDTO, SORT_HOT
 from reddit.reader import RedditReader
 
-NEW_SUB_CHECK_INTERVAL: int = 60
+NEW_SUB_CHECK_INTERVAL: int = 180
 
 
 class Syncer:
