@@ -174,7 +174,10 @@ class Syncer:
             self._lemmy.create_comment(
                 post_id=post['post']['id'],
                 content=f"I'll get right on that. Check out "
-                        f"{LemmyAPI.community_uri(community.ident, self.lemmy_hostname)}!"
+                        f"{LemmyAPI.community_uri(community.ident, self.lemmy_hostname)}!\n\n"
+                        f"[Click here to fetch this community](/search/q/!{community.ident}%40{self.lemmy_hostname}/"
+                        f"type/All/sort/TopAll/listing_type/All/community_id/0/creator_id/0/page/1) for your Lemmy "
+                        f"instance if you get a 404 error with the link above."
             )
             self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
         self.new_sub_check = int(time.time())

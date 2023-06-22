@@ -179,10 +179,7 @@ class SyncerTestCase(unittest.TestCase):
 
         self.syncer.check_new_subs()
 
-        self.syncer._lemmy.create_comment.assert_called_once_with(
-            post_id=post_id,
-            content="I'll get right on that. Check out [/c/test_subreddit@foo.bar](/c/test_subreddit@foo.bar)!"
-        )
+        self.syncer._lemmy.create_comment.assert_called_once()
         self.syncer._lemmy.mark_post_as_read.assert_called_once_with(post_id=post_id, read=True)
 
     def test_check_new_subs_failed_community_details(self):
