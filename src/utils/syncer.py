@@ -13,20 +13,18 @@ from lemmy.api import LemmyAPI
 from models.models import Community, PostDTO, Post, CommunityDTO, SORT_HOT
 from reddit.reader import RedditReader
 
-NEW_SUB_CHECK_INTERVAL: int = 180
+NEW_SUB_CHECK_INTERVAL: int = 180  # Seconds between checking for new messages
+PER_SUB_CHECK_INTERVAL: int = 600  # Minimal wait time before checking a subreddit for new posts
 
 
 class Syncer:
-    interval: int = 120  # Time between updates per subreddit
-    new_sub_check: int = None  # Time between check for new subreddit requests
+    new_sub_check: int = None  # Last timestamp request checker ran
 
-    def __init__(self, db: DbSession, reddit_reader: RedditReader, lemmy: LemmyAPI, interval: int = 120,
-                 request_community: str = None):
+    def __init__(self, db: DbSession, reddit_reader: RedditReader, lemmy: LemmyAPI, request_community: str = None):
         self._db: DbSession = db
         self._reddit_reader: RedditReader = reddit_reader
         self._lemmy: LemmyAPI = lemmy
         self._logger = logging.getLogger(__name__)
-        self.interval = interval
         self.request_community = request_community
         self.lemmy_hostname: str = urlparse(lemmy.base_url).hostname
 
@@ -36,7 +34,7 @@ class Syncer:
             .filter(
             Community.enabled.is_(True),
             or_(
-                Community.last_scrape <= datetime.utcnow() - timedelta(seconds=self.interval),
+                Community.last_scrape <= datetime.utcnow() - timedelta(seconds=PER_SUB_CHECK_INTERVAL),
                 Community.last_scrape.is_(None)
             )
         ) \
