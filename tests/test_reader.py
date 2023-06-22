@@ -43,9 +43,7 @@ class RedditReaderTestCase(unittest.TestCase):
             nsfw=False
         ))
         self.subject.is_sub_nsfw.assert_called_once_with('todayilearned')
-        self.subject._request.assert_called_once_with(
-            'GET', 'https://old.reddit.com/r/todayilearned/', allow_redirects=False
-        )
+        self.subject._request.assert_called_once_with('GET', 'https://old.reddit.com/r/todayilearned/')
 
     def test_is_sub_nsfw(self):
         self.assertTrue(self.subject.is_sub_nsfw('gonewildaudio'))
