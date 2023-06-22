@@ -7,14 +7,17 @@ A Reddit-to-Lemmy cross-poster.
 - Posts to `/user/` subreddits are broken.
 
 ## To do:
+- Use a Lemmy python library 
 - MORE TESTS!
 - Follow links on "bestof" posts: If post has no body, and "external link" is also reddit, retrieve body from external link.
 - Increase delay between posts when initially setting up a community (benefits both scraping and federating)
 - Create a watcher that periodically checks for updates (edits / deletes) on reddit post and sync those:
   * 1 hour, day, week, month after posting.
   * Automatically when reported (Unless queued in last hour, to prevent abuse)
+
+## Won't do:
 - Toggle between copying **New** or just the **Hot** posts
-  * What should be the default? For properly moderated subs, New can be used.
+  * Not feasible with the amount of subreddits that are being monitored.
 
 ## Maybe later
 - Have a hardcoded set of subs, rather than working through a request community, for running on other instances.

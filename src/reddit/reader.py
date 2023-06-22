@@ -83,7 +83,7 @@ class RedditReader:
 
     def get_subreddit_info(self, ident: str) -> Optional[CommunityDTO]:
         sub_url = f"https://old.reddit.com/r/{ident}/"
-        response = self._request('GET', sub_url, allow_redirects=False)
+        response = self._request('GET', sub_url)
         if response.status_code != 200:
             return None
 
