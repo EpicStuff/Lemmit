@@ -130,7 +130,12 @@ class Syncer:
             return
         self._logger.info('Checking for new subreddit requests...')
 
-        posts = self._get_new_sub_requests()
+        try:
+            posts = self._get_new_sub_requests()
+        except Exception as e:
+            self._logger.error(f"Error trying to find new sub requests: {str(e)}")
+            return
+
         for post in posts:
             self._logger.info('New subreddit request received')
 

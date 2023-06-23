@@ -18,12 +18,18 @@ from utils.syncer import Syncer
 syncer: Syncer
 load_dotenv()
 logging.basicConfig(level=os.getenv('LOGLEVEL', logging.INFO))
+keep_running = True
+
+
+def handle_signal(signum, frame):
+    global keep_running
+    logging.warning(f"Received signal {signum}. Stopping gracefully...")
+    keep_running = False
 
 
 def initialize_database(db_url):
     """Initialize the database if it doesn't exist and run migrations."""
     engine = create_engine(db_url)
-    Base.metadata.create_all(engine)
 
     # Run migrations using Alembic
     alembic_cfg = Config("../alembic.ini")
@@ -51,7 +57,7 @@ if __name__ == '__main__':
     reddit_scraper = RedditReader()
     syncer = Syncer(db=db_session, reddit_reader=reddit_scraper, lemmy=lemmy_api, request_community=request_community)
 
-    while True:
+    while keep_running:
         syncer.check_new_subs()
         syncer.scrape_new_posts()
         time.sleep(2)
