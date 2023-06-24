@@ -203,6 +203,8 @@ The original was posted on [/r/{community.ident}]({post.reddit_link.replace('htt
         if post.external_link and len(post.external_link) > 512:
             prefix = prefix + f"\n**Original URL**: {post.external_link}\n"
             post.external_link = None
+        if post.external_link and post.external_link.startswith('/'):
+            post.external_link = 'https://old.reddit.com' + post.external_link
 
         post.body = prefix + ('***\n' + post.body if post.body else '')
 
