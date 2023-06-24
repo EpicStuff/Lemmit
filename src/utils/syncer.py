@@ -172,6 +172,7 @@ class Syncer:
                     content="Something went terribly wrong trying to create that community. "
                             f"[@admin@{self.lemmy_hostname}](https://{self.lemmy_hostname}/u/admin) I need an adult! :("
                 )
+                self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
                 continue
 
             self._lemmy.create_comment(

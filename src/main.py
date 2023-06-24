@@ -57,7 +57,11 @@ if __name__ == '__main__':
     reddit_scraper = RedditReader()
     syncer = Syncer(db=db_session, reddit_reader=reddit_scraper, lemmy=lemmy_api, request_community=request_community)
 
+    if request_community is None:
+        logging.warning('No request community is set - will not check for new requests.')
+
     while keep_running:
-        syncer.check_new_subs()
+        if request_community:
+            syncer.check_new_subs()
         syncer.scrape_new_posts()
         time.sleep(2)
