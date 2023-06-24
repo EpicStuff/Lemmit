@@ -11,13 +11,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from lemmy.api import LemmyAPI
-from models.models import Base
 from reddit.reader import RedditReader
 from utils.syncer import Syncer
 
 syncer: Syncer
 load_dotenv()
-logging.basicConfig(level=os.getenv('LOGLEVEL', logging.INFO))
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                    level=os.getenv('LOGLEVEL', logging.INFO))
 keep_running = True
 
 
