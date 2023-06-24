@@ -28,6 +28,9 @@ class SyncerTestCase(unittest.TestCase):
         # Mock the necessary objects
         self.reddit_reader.get_subreddit_topics.return_value = TEST_POSTS
 
+        # get_post_details just returns its input
+        self.reddit_reader.get_post_details.side_effect = lambda x: x
+
         # Mock the return value of self.next_scrape_community
         self.syncer.next_scrape_community = MagicMock(return_value=TEST_COMMUNITY)
 
@@ -175,7 +178,7 @@ class SyncerTestCase(unittest.TestCase):
             'read': False
         }
         self.syncer._lemmy.get_posts = MagicMock(return_value={'posts': [post]})
-        self.syncer.get_community_details_from_post = MagicMock(return_value=TEST_COMMUNITY_DTO)
+        self.syncer.get_community_details_from_request_post = MagicMock(return_value=TEST_COMMUNITY_DTO)
 
         self.syncer.check_new_subs()
 
@@ -193,7 +196,7 @@ class SyncerTestCase(unittest.TestCase):
             'read': False
         }
         self.syncer._lemmy.get_posts = MagicMock(return_value={'posts': [post]})
-        self.syncer.get_community_details_from_post = MagicMock(
+        self.syncer.get_community_details_from_request_post = MagicMock(
             side_effect=SubredditRequestException('Failed to retrieve community details')
         )
 
@@ -216,7 +219,7 @@ class SyncerTestCase(unittest.TestCase):
             'read': False
         }
         self.syncer._lemmy.get_posts = MagicMock(return_value={'posts': [post]})
-        self.syncer.get_community_details_from_post = MagicMock(return_value=TEST_COMMUNITY_DTO)
+        self.syncer.get_community_details_from_request_post = MagicMock(return_value=TEST_COMMUNITY_DTO)
 
         self.syncer._lemmy.create_community = MagicMock(side_effect=Exception('Failed to create community'))
 
@@ -240,7 +243,7 @@ class SyncerTestCase(unittest.TestCase):
         self.syncer.community_exists = MagicMock(return_value=False)
 
         with self.assertRaisesRegex(SubredditRequestException, r"Does it exist and is it not private?"):
-            self.syncer.get_community_details_from_post(post)
+            self.syncer.get_community_details_from_request_post(post)
 
     def test_get_sub_details_from_post_existing_community(self):
         post = {
@@ -252,7 +255,7 @@ class SyncerTestCase(unittest.TestCase):
         self.syncer._reddit_reader.get_subreddit_info = MagicMock(return_value=None)
 
         with self.assertRaisesRegex(SubredditRequestException, r"There already is a 'already_existing' community at"):
-            self.syncer.get_community_details_from_post(post)
+            self.syncer.get_community_details_from_request_post(post)
 
 
 if __name__ == '__main__':

@@ -17,6 +17,7 @@ from reddit.reader import RedditReader
 NEW_SUB_CHECK_INTERVAL: int = 180  # Seconds between checking for new messages
 PER_SUB_CHECK_INTERVAL: int = 600  # Minimal wait time before checking a subreddit for new posts
 
+# This is a filter Lemmy uses - which unfortunately also blocks titles like 'uh oh', so a workaround is required.
 VALID_TITLE = re.compile(r".*\S{3,}.*")
 
 
@@ -82,7 +83,6 @@ class Syncer:
         existing_links_raw = self._db.query(Post.reddit_link).filter(Post.reddit_link.in_(reddit_links)).all()
         existing_links = [link[0] for link in existing_links_raw]
 
-        # filtered_posts = [post for post in posts if post.reddit_link not in existing_links]
         filtered_posts = []
         for post in posts:
             if post.reddit_link not in existing_links:
@@ -143,7 +143,7 @@ class Syncer:
             self._logger.info('New subreddit request received')
 
             try:
-                community = self.get_community_details_from_post(post)
+                community = self.get_community_details_from_request_post(post)
             except SubredditRequestException as e:
                 self._logger.error(str(e))
                 self._lemmy.create_comment(post_id=post['post']['id'], content=str(e))
@@ -200,6 +200,9 @@ The original was posted on [/r/{community.ident}]({post.reddit_link.replace('htt
         elif not VALID_TITLE.match(post.title):
             prefix = prefix + f"\n**Original Title**: {post.title}\n"
             post.title = post.title.rstrip() + '...'
+        if post.external_link and len(post.external_link) > 512:
+            prefix = prefix + f"\n**Original URL**: {post.external_link}\n"
+            post.external_link = None
 
         post.body = prefix + ('***\n' + post.body if post.body else '')
 
@@ -221,7 +224,7 @@ The original was posted on [/r/{community.ident}]({post.reddit_link.replace('htt
 
         return ret_posts
 
-    def get_community_details_from_post(self, post: dict) -> CommunityDTO:
+    def get_community_details_from_request_post(self, post: dict) -> CommunityDTO:
         """Create a new Lemmy Community based on request post"""
         # Try and extract the identifier
         ident = None
