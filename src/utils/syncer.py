@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from datetime import datetime, timedelta
 from operator import attrgetter
@@ -15,6 +16,8 @@ from reddit.reader import RedditReader
 
 NEW_SUB_CHECK_INTERVAL: int = 180  # Seconds between checking for new messages
 PER_SUB_CHECK_INTERVAL: int = 600  # Minimal wait time before checking a subreddit for new posts
+
+VALID_TITLE = re.compile(r".*\S{3,}.*")
 
 
 class Syncer:
@@ -194,6 +197,9 @@ The original was posted on [/r/{community.ident}]({post.reddit_link.replace('htt
         if len(post.title) >= 200:
             prefix = prefix + f"\n**Original Title**: {post.title}\n"
             post.title = post.title[:196] + '...'
+        elif not VALID_TITLE.match(post.title):
+            prefix = prefix + f"\n**Original Title**: {post.title}\n"
+            post.title = post.title.rstrip() + '...'
 
         post.body = prefix + ('***\n' + post.body if post.body else '')
 
