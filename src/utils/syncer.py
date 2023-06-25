@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session as DbSession
 from lemmy.api import LemmyAPI
 from models.models import Community, PostDTO, Post, CommunityDTO, SORT_HOT
 from reddit.reader import RedditReader
+from utils import format_duration
 
 NEW_SUB_CHECK_INTERVAL: int = 180  # Seconds between checking for new messages
 PER_SUB_CHECK_INTERVAL: int = 600  # Minimal wait time before checking a subreddit for new posts
@@ -49,7 +50,8 @@ class Syncer:
         community = self.next_scrape_community()
 
         if community:
-            self._logger.info(f'Scraping subreddit: {community.ident}')
+            last_time = format_duration(community.last_scrape) if community.last_scrape else "FOREVER"
+            self._logger.info(f'Scraping subreddit: {community.ident}. Last time {last_time} ago')
             try:
                 posts = self._reddit_reader.get_subreddit_topics(community.ident, mode=community.sorting)
             except BaseException as e:

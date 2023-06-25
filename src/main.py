@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import logging
 import os
+import signal
 import sys
 import time
 
@@ -23,7 +24,7 @@ keep_running = True
 
 def handle_signal(signum, frame):
     global keep_running
-    logging.warning(f"Received signal {signum}. Stopping gracefully...")
+    logging.warning(f"Received signal {signum}. Stopping as soon as possible...")
     keep_running = False
 
 
@@ -59,6 +60,10 @@ if __name__ == '__main__':
 
     if request_community is None:
         logging.warning('No request community is set - will not check for new requests.')
+
+    # Set up signal handlers
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
 
     while keep_running:
         if request_community:
