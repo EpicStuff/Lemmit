@@ -72,4 +72,4 @@ if __name__ == '__main__':
             syncer.check_new_subs()
         syncer.scrape_new_posts()
         stats.update_community_stats()
-        time.sleep(2)
+        time.sleep(1)

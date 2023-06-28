@@ -1,10 +1,11 @@
 import logging
+import time
 from datetime import datetime, timedelta
 from operator import or_
 from typing import List
 
 from requests import HTTPError
-from sqlalchemy import asc, func
+from sqlalchemy import asc, func, and_
 from sqlalchemy.orm import Session as DbSession
 
 from lemmy.api import LemmyAPI
@@ -16,16 +17,10 @@ COMMUNITY_UPDATE_INTERVAL = 120
 # Minimum amount of minutes between checks
 INTERVAL_DESERTED = 60 * 12
 INTERVAL_LOW = 120
-INTERVAL_MEDIUM = 30
-INTERVAL_HIGH = 10
+INTERVAL_MEDIUM = 60
+INTERVAL_HIGH = 30
+INTERVAL_HIGHEST = 10
 
-# Deserted is the minimal value
-SUBSCRIBER_INTERVAL_MAPPING = [
-    (0, INTERVAL_DESERTED),
-    (2, INTERVAL_LOW),
-    (5, INTERVAL_MEDIUM),
-    (25, INTERVAL_HIGH),
-]
 
 # Amount of Communities to update per time
 BATCH_SIZE = 10
@@ -44,6 +39,9 @@ class Stats:
 
         # Get 10 CommunityStats that have not been updated recently
         batch: List[CommunityStats] = self.get_update_batch(BATCH_SIZE)
+        if not batch:
+            logger.debug("No communities due for a stats update")
+            return
 
         for community_stats in batch:
             try:
@@ -61,7 +59,9 @@ class Stats:
 
             community_stats.posts_per_day = self.get_posts_per_day(community_stats.community_id)
             community_stats.last_update = datetime.utcnow()
-            community_stats.min_interval = self.decide_interval(community_stats)
+            community_stats.min_interval = self.decide_interval(
+                community_stats.subscribers, community_stats.posts_per_day
+            )
 
             self._db.add(community_stats)
             self._db.commit()
@@ -89,34 +89,42 @@ class Stats:
         return post_count
 
     def get_update_batch(self, limit: int) -> List[CommunityStats]:
-        """Get a batch of CommunityStats that are due for an update"""
-        yesterday_utc = datetime.utcnow() - timedelta(days=-1)
-        self._db.query(CommunityStats) \
-            .join(Community, CommunityStats.community_id == Community.id) \
+        """Get a batch of CommunityStats that are due for an update, or with an unknown Community creation"""
+        yesterday_utc = datetime.utcnow() - timedelta(days=1)
+        stats_threshold_utc = datetime.utcnow() - timedelta(minutes=COMMUNITY_UPDATE_INTERVAL)
+        query = (
+            self._db.query(CommunityStats)
+            .join(Community, CommunityStats.community_id == Community.id)
             .filter(
-            CommunityStats.last_update < datetime.utcnow() - timedelta(minutes=COMMUNITY_UPDATE_INTERVAL),
-            or_(
-                Community.created.is_(None),
-                Community.created <= yesterday_utc
+                or_(
+                    Community.created.is_(None),
+                    and_(
+                        CommunityStats.last_update < stats_threshold_utc,
+                        Community.created <= yesterday_utc
+                    ),
+                )
             )
-        ) \
-            .order_by(asc(CommunityStats.last_update), asc(CommunityStats.subscribers)) \
-            .limit(limit) \
+            .order_by(asc(CommunityStats.last_update), asc(CommunityStats.subscribers))
+            .limit(limit)
             .all()
+        )
 
-    def decide_interval(self, community_stats: CommunityStats) -> int:
+        return query
+
+    @staticmethod
+    def decide_interval(subscribers: int, posts_per_day: int) -> int:
         """Decide what the next update should be, based on subscriber count and posts per day"""
-        subscribers = community_stats.subscribers
-        posts_per_day = community_stats.posts_per_day
-
-        if subscribers <= 1:  # Only the bot is subscribed
+        # No subscribers, or too little posts means check once per day
+        if subscribers < 2 or posts_per_day < 1:
             return INTERVAL_DESERTED
 
-        if posts_per_day < 1:
-            return INTERVAL_LOW
+        if subscribers >= 25 and posts_per_day >= 25:
+            return INTERVAL_HIGHEST
 
-        for threshold, interval in reversed(SUBSCRIBER_INTERVAL_MAPPING):  # Work highest to lowest
-            if subscribers <= threshold:
-                return interval
+        if subscribers >= 10 and posts_per_day >= 15:
+            return INTERVAL_HIGH
 
-        return INTERVAL_HIGH
+        if subscribers >= 5 and posts_per_day >= 10:
+            return INTERVAL_MEDIUM
+
+        return INTERVAL_LOW
