@@ -194,7 +194,7 @@ class Syncer:
 
     @staticmethod
     def prepare_post(post: PostDTO, community: Community) -> PostDTO:
-        prefix = f"""##### This is an automated archive made by the [Lemmit Bot](https://lemmit.online/).
+        prefix = f"""##### This is an automated archive made by the [Lemmit Bot](https://lemmit.online/post/14692).
 The original was posted on [/r/{community.ident}]({post.reddit_link.replace('https://www.', 'https://old.')}) by [{post.author}](https://old.reddit.com{post.author}) on {post.created}.\n"""
         if len(post.title) >= 200:
             prefix = prefix + f"\n**Original Title**: {post.title}\n"

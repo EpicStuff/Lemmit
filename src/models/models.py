@@ -30,11 +30,26 @@ class Community(Base):
     ident: str = Column(String, nullable=False)
     nsfw: bool = Column(Boolean, nullable=False, default=False)
     last_scrape: datetime = Column(DateTime, nullable=True)
+    created: datetime = Column(DateTime, nullable=True, default=datetime.utcnow())
     enabled: bool = Column(Boolean, nullable=False, server_default='1')
     sorting: str = Column(String(length=10), nullable=False, server_default='hot')
+    # Relationship to CommunityStats
+    stats: Mapped['CommunityStats'] = relationship('CommunityStats', uselist=False, backref='community', lazy='select')
 
     def __str__(self) -> str:
         return f"{self.ident} path:{self.path}"
+
+
+class CommunityStats(Base):
+    """Metrics for a specific community"""
+
+    __tablename__: str = 'community_stats'
+
+    community_id: int = Column(Integer, ForeignKey(f"{Community.__tablename__}.id"), primary_key=True)
+    subscribers: int = Column(Integer, nullable=False, default=0)
+    posts_per_day: int = Column(Integer, nullable=False, default=0)
+    min_interval: int = Column(Integer, nullable=False, default=15)
+    last_update: datetime = Column(DateTime, nullable=False, default=datetime.fromtimestamp(0))
 
 
 @dataclass

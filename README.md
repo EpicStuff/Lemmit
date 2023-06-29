@@ -7,12 +7,18 @@ A Reddit-to-Lemmy cross-poster.
 - Some community names are too long for Lemmy, and cant be indexed.
 
 ## To do:
+- use json feed and drop FeedAgent
+- Periodically: update stat record per community
+  - # Subscribers
+  - # posts / hour
+- Update communities based on popularity / amount of posts/day
+- Disable deleted Communities in DB
+
 - Allow for removal of communities:
   - When failing to post, check if still exist. If not, set enabled to False
   - Alert the bot through private message
   - Check when requesting
 - MORE TESTS!
-- Increase delay between posts when initially setting up a community (benefits both scraping and federating)
 - Create a watcher that periodically checks for updates (edits / deletes) on reddit post and sync those:
   * 1 hour, day, week, month after posting.
   * Automatically when reported (Unless queued in last hour, to prevent abuse)
