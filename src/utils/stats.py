@@ -65,6 +65,7 @@ class Stats:
 
             self._db.add(community_stats)
             self._db.commit()
+            time.sleep(0.5)  # TODO - move delay to Lemmy client. 0.5s for get, 2s for POST
 
     def initialize_stats(self):
         """Ensure that each Community has a CommunityStats counterpart"""
