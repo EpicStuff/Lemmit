@@ -44,6 +44,7 @@ class Stats:
             return
 
         for community_stats in batch:
+            logger.info(f"Updating stats for {community_stats.community.ident}...")
             try:
                 data = self._lemmy.community(name=community_stats.community.ident)
             except HTTPError as e:
