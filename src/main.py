@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import logging
 import os
+import signal
 import sys
 import time
 
@@ -11,19 +12,25 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from lemmy.api import LemmyAPI
-from models.models import Base
 from reddit.reader import RedditReader
 from utils.syncer import Syncer
 
 syncer: Syncer
 load_dotenv()
-logging.basicConfig(level=os.getenv('LOGLEVEL', logging.INFO))
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                    level=os.getenv('LOGLEVEL', logging.INFO))
+keep_running = True
+
+
+def handle_signal(signum, frame):
+    global keep_running
+    logging.warning(f"Received signal {signum}. Stopping as soon as possible...")
+    keep_running = False
 
 
 def initialize_database(db_url):
     """Initialize the database if it doesn't exist and run migrations."""
     engine = create_engine(db_url)
-    Base.metadata.create_all(engine)
 
     # Run migrations using Alembic
     alembic_cfg = Config("../alembic.ini")
@@ -51,7 +58,15 @@ if __name__ == '__main__':
     reddit_scraper = RedditReader()
     syncer = Syncer(db=db_session, reddit_reader=reddit_scraper, lemmy=lemmy_api, request_community=request_community)
 
-    while True:
-        syncer.check_new_subs()
+    if request_community is None:
+        logging.warning('No request community is set - will not check for new requests.')
+
+    # Set up signal handlers
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    while keep_running:
+        if request_community:
+            syncer.check_new_subs()
         syncer.scrape_new_posts()
         time.sleep(2)

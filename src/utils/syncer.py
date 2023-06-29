@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from datetime import datetime, timedelta
 from operator import attrgetter
@@ -12,21 +13,23 @@ from sqlalchemy.orm import Session as DbSession
 from lemmy.api import LemmyAPI
 from models.models import Community, PostDTO, Post, CommunityDTO, SORT_HOT
 from reddit.reader import RedditReader
+from utils import format_duration
 
-NEW_SUB_CHECK_INTERVAL: int = 180
+NEW_SUB_CHECK_INTERVAL: int = 180  # Seconds between checking for new messages
+PER_SUB_CHECK_INTERVAL: int = 600  # Minimal wait time before checking a subreddit for new posts
+
+# This is a filter Lemmy uses - which unfortunately also blocks titles like 'uh oh', so a workaround is required.
+VALID_TITLE = re.compile(r".*\S{3,}.*")
 
 
 class Syncer:
-    interval: int = 120  # Time between updates per subreddit
-    new_sub_check: int = None  # Time between check for new subreddit requests
+    new_sub_check: int = None  # Last timestamp request checker ran
 
-    def __init__(self, db: DbSession, reddit_reader: RedditReader, lemmy: LemmyAPI, interval: int = 120,
-                 request_community: str = None):
+    def __init__(self, db: DbSession, reddit_reader: RedditReader, lemmy: LemmyAPI, request_community: str = None):
         self._db: DbSession = db
         self._reddit_reader: RedditReader = reddit_reader
         self._lemmy: LemmyAPI = lemmy
         self._logger = logging.getLogger(__name__)
-        self.interval = interval
         self.request_community = request_community
         self.lemmy_hostname: str = urlparse(lemmy.base_url).hostname
 
@@ -36,7 +39,7 @@ class Syncer:
             .filter(
             Community.enabled.is_(True),
             or_(
-                Community.last_scrape <= datetime.utcnow() - timedelta(seconds=self.interval),
+                Community.last_scrape <= datetime.utcnow() - timedelta(seconds=PER_SUB_CHECK_INTERVAL),
                 Community.last_scrape.is_(None)
             )
         ) \
@@ -47,7 +50,8 @@ class Syncer:
         community = self.next_scrape_community()
 
         if community:
-            self._logger.info(f'Scraping subreddit: {community.ident}')
+            last_time = format_duration(community.last_scrape) if community.last_scrape else "FOREVER"
+            self._logger.info(f'Scraping subreddit: {community.ident}. Last time {last_time} ago')
             try:
                 posts = self._reddit_reader.get_subreddit_topics(community.ident, mode=community.sorting)
             except BaseException as e:
@@ -81,7 +85,6 @@ class Syncer:
         existing_links_raw = self._db.query(Post.reddit_link).filter(Post.reddit_link.in_(reddit_links)).all()
         existing_links = [link[0] for link in existing_links_raw]
 
-        # filtered_posts = [post for post in posts if post.reddit_link not in existing_links]
         filtered_posts = []
         for post in posts:
             if post.reddit_link not in existing_links:
@@ -132,12 +135,17 @@ class Syncer:
             return
         self._logger.info('Checking for new subreddit requests...')
 
-        posts = self._get_new_sub_requests()
+        try:
+            posts = self._get_new_sub_requests()
+        except Exception as e:
+            self._logger.error(f"Error trying to find new sub requests: {str(e)}")
+            return
+
         for post in posts:
             self._logger.info('New subreddit request received')
 
             try:
-                community = self.get_community_details_from_post(post)
+                community = self.get_community_details_from_request_post(post)
             except SubredditRequestException as e:
                 self._logger.error(str(e))
                 self._lemmy.create_comment(post_id=post['post']['id'], content=str(e))
@@ -169,6 +177,7 @@ class Syncer:
                     content="Something went terribly wrong trying to create that community. "
                             f"[@admin@{self.lemmy_hostname}](https://{self.lemmy_hostname}/u/admin) I need an adult! :("
                 )
+                self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
                 continue
 
             self._lemmy.create_comment(
@@ -190,6 +199,14 @@ The original was posted on [/r/{community.ident}]({post.reddit_link.replace('htt
         if len(post.title) >= 200:
             prefix = prefix + f"\n**Original Title**: {post.title}\n"
             post.title = post.title[:196] + '...'
+        elif not VALID_TITLE.match(post.title):
+            prefix = prefix + f"\n**Original Title**: {post.title}\n"
+            post.title = post.title.rstrip() + '...'
+        if post.external_link and len(post.external_link) > 512:
+            prefix = prefix + f"\n**Original URL**: {post.external_link}\n"
+            post.external_link = None
+        if post.external_link and post.external_link.startswith('/'):
+            post.external_link = 'https://old.reddit.com' + post.external_link
 
         post.body = prefix + ('***\n' + post.body if post.body else '')
 
@@ -211,7 +228,7 @@ The original was posted on [/r/{community.ident}]({post.reddit_link.replace('htt
 
         return ret_posts
 
-    def get_community_details_from_post(self, post: dict) -> CommunityDTO:
+    def get_community_details_from_request_post(self, post: dict) -> CommunityDTO:
         """Create a new Lemmy Community based on request post"""
         # Try and extract the identifier
         ident = None
