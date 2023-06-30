@@ -8,12 +8,8 @@ A Reddit-to-Lemmy cross-poster.
 
 ## To do:
 - use json feed and drop FeedAgent
-- Periodically: update stat record per community
-  - # Subscribers
-  - # posts / hour
-- Update communities based on popularity / amount of posts/day
+- Add a sticky to each community, explaining Lemmit is a Bot-service, and link to any known **non-botty** alternatives. This will also allow Lemmy users to suggest proper alternatives, since bots aren't that smart.
 - Disable deleted Communities in DB
-
 - Allow for removal of communities:
   - When failing to post, check if still exist. If not, set enabled to False
   - Alert the bot through private message
@@ -22,7 +18,6 @@ A Reddit-to-Lemmy cross-poster.
 - Create a watcher that periodically checks for updates (edits / deletes) on reddit post and sync those:
   * 1 hour, day, week, month after posting.
   * Automatically when reported (Unless queued in last hour, to prevent abuse)
-- Have score based system for update frequency (posts/hour + subscribers)
 
 ## Won't do:
 - Toggle between copying **New** or just the **Hot** posts
