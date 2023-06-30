@@ -109,8 +109,11 @@ class Syncer:
                 #  If not, return, so it gets picked up next time
                 lemmy_post = {'post_view': {'post': {'ap_id': f'https://some.post.in/{community.ident}'}}}  # hack
             else:
+                message = str(e)
+                if 'response' in e:
+                    message = message + f': {e.response.content}'
                 self._logger.error(
-                    f"HTTPError trying to post {post.reddit_link}: {str(e)}: {str(e.response.content)}"
+                    f"HTTPError trying to post {post.reddit_link}: {message}"
                 )
                 return
 
