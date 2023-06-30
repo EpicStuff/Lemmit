@@ -1,17 +1,17 @@
 import logging
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from operator import attrgetter
 from typing import Type, List, Optional
 from urllib.parse import urlparse
 
 from requests import HTTPError
-from sqlalchemy import or_
+from sqlalchemy import or_, func, String
 from sqlalchemy.orm import Session as DbSession
 
 from lemmy.api import LemmyAPI
-from models.models import Community, PostDTO, Post, CommunityDTO, SORT_HOT
+from models.models import Community, PostDTO, Post, CommunityDTO, SORT_HOT, CommunityStats
 from reddit.reader import RedditReader
 from utils import format_duration
 
@@ -35,16 +35,18 @@ class Syncer:
 
     def next_scrape_community(self) -> Optional[Type[Community]]:
         """Get the next community that is due for scraping."""
-        return self._db.query(Community) \
+        # Funky method to get the next scrape datetime for a community
+        threshold = func.datetime(Community.last_scrape,
+                                  '+' + func.cast(CommunityStats.min_interval, String) + ' minutes')
+        query = self._db.query(Community).join(CommunityStats, Community.id == CommunityStats.community_id) \
             .filter(
-            Community.enabled.is_(True),
             or_(
-                Community.last_scrape <= datetime.utcnow() - timedelta(seconds=PER_SUB_CHECK_INTERVAL),
-                Community.last_scrape.is_(None)
+                Community.last_scrape.is_(None),
+                threshold < func.datetime('now')
             )
         ) \
-            .order_by(Community.last_scrape) \
-            .first()
+            .order_by(threshold)
+        return query.first()
 
     def scrape_new_posts(self):
         community = self.next_scrape_community()
