@@ -53,7 +53,8 @@ class Syncer:
 
         if community:
             last_time = format_duration(community.last_scrape) if community.last_scrape else "FOREVER"
-            self._logger.info(f'Scraping subreddit: {community.ident}. Last time {last_time} ago')
+            self._logger.info(f'Scraping subreddit: {community.ident}. '
+                              f'Last time {last_time} ago, interval {community.stats.min_interval} minutes')
             try:
                 posts = self._reddit_reader.get_subreddit_topics(community.ident, mode=community.sorting)
             except BaseException as e:

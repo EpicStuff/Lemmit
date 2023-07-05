@@ -67,9 +67,11 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
+    stats.recalculate_stats()
+
     while keep_running:
         if request_community:
             syncer.check_new_subs()
-        syncer.scrape_new_posts()
         stats.update_community_stats()
+        syncer.scrape_new_posts()
         time.sleep(1)

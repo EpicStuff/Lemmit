@@ -12,9 +12,9 @@ class TestStats:
             (1, 100, INTERVAL_DESERTED),
             (100, 3, INTERVAL_LOW),
             (2, 130, INTERVAL_LOW),
-            (5, 10, INTERVAL_MEDIUM),
-            (5, 41, INTERVAL_MEDIUM),
-            (30, 41, INTERVAL_HIGHEST),
+            (11, 10, INTERVAL_MEDIUM),
+            (13, 41, INTERVAL_MEDIUM),
+            (50, 41, INTERVAL_HIGHEST),
         ]
 
     @pytest.mark.parametrize("subscribers, posts_per_day, expected", interval_test_data())

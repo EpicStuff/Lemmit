@@ -68,6 +68,27 @@ class Stats:
             self._db.commit()
             time.sleep(0.5)  # TODO - move delay to Lemmy client. 0.5s for get, 2s for POST
 
+    def recalculate_stats(self, page_size=100):
+        logger.info(f"Recalculating CommunityStats intervals...")
+        page_number = 1
+        while True:
+            community_stats = self._db.query(CommunityStats).limit(page_size).offset(
+                (page_number - 1) * page_size).all()
+
+            if not community_stats:
+                break
+
+            for cs in community_stats:
+                interval_before = cs.min_interval
+                cs.min_interval = self.decide_interval(cs.subscribers, cs.posts_per_day)
+                if cs.min_interval != interval_before:
+                    logger.info(f"Updated {cs.community.ident} interval to {cs.min_interval} (was {interval_before})")
+
+            page_number += 1
+
+        logger.info("Finished recalculating CommunityStats intervals.")
+        self._db.commit()
+
     def initialize_stats(self):
         """Ensure that each Community has a CommunityStats counterpart"""
         statless_communities = self._db.query(Community) \
@@ -120,13 +141,13 @@ class Stats:
         if subscribers < 2 or posts_per_day < 1:
             return INTERVAL_DESERTED
 
-        if subscribers >= 25 and posts_per_day >= 25:
+        if subscribers >= 50 and posts_per_day >= 25:
             return INTERVAL_HIGHEST
 
-        if subscribers >= 10 and posts_per_day >= 15:
+        if subscribers >= 25 and posts_per_day >= 15:
             return INTERVAL_HIGH
 
-        if subscribers >= 5 and posts_per_day >= 10:
+        if subscribers >= 10 and posts_per_day >= 10:
             return INTERVAL_MEDIUM
 
         return INTERVAL_LOW
