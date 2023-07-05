@@ -122,7 +122,7 @@ class Syncer:
 
         except Exception as e:
             self._logger.error(
-                f"Something went horribly wrong when posting {post.reddit_link}: {str(e)}: {str(e.response.content)}"
+                f"Something went horribly wrong when posting {post.reddit_link}: {str(e)}"
             )
             return
 
