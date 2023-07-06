@@ -59,11 +59,15 @@ class Stats:
                     data['community_view']['community']['published'])
                 self._db.add(community_stats.community)
 
+            interval_before = community_stats.min_interval
             community_stats.posts_per_day = self.get_posts_per_day(community_stats.community_id)
             community_stats.last_update = datetime.utcnow()
             community_stats.min_interval = self.decide_interval(
                 community_stats.subscribers, community_stats.posts_per_day
             )
+
+            if community_stats.min_interval != interval_before:
+                logger.info(f"Updated {community_stats.community.ident} interval to {community_stats.min_interval} (was {interval_before})")
 
             self._db.add(community_stats)
             self._db.commit()
@@ -147,8 +151,8 @@ class Stats:
         if subscribers < 2:
             return INTERVAL_DESERTED
 
-        # No posts or 1 user, twice per day
-        if posts_per_day < 1 or subscribers < 3:
+        # Few posts or 1 user, twice per day
+        if subscribers < 5 or posts_per_day < 5:
             return INTERVAL_BI_DAILY
 
         if subscribers >= 50 and posts_per_day >= 25:
