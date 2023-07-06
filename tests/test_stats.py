@@ -10,7 +10,7 @@ class TestStats:
             (1, 1, INTERVAL_DESERTED),
             (10, 0, INTERVAL_BI_DAILY),
             (2, 100, INTERVAL_BI_DAILY),
-            (100, 3, INTERVAL_LOW),
+            (100, 5, INTERVAL_LOW),
             (5, 130, INTERVAL_LOW),
             (11, 10, INTERVAL_MEDIUM),
             (13, 41, INTERVAL_MEDIUM),
