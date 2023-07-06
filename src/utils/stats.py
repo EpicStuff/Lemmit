@@ -15,7 +15,8 @@ from models.models import Community, CommunityStats, Post
 COMMUNITY_UPDATE_INTERVAL = 120
 
 # Minimum amount of minutes between checks
-INTERVAL_DESERTED = 60 * 12
+INTERVAL_DESERTED = 3600 * 24 * 365
+INTERVAL_BI_DAILY = 60 * 12
 INTERVAL_LOW = 120
 INTERVAL_MEDIUM = 60
 INTERVAL_HIGH = 30
@@ -71,9 +72,14 @@ class Stats:
     def recalculate_stats(self, page_size=100):
         logger.info(f"Recalculating CommunityStats intervals...")
         page_number = 1
+        yesterday_utc = datetime.utcnow() - timedelta(days=1)
         while True:
-            community_stats = self._db.query(CommunityStats).limit(page_size).offset(
-                (page_number - 1) * page_size).all()
+            community_stats = self._db.query(CommunityStats)\
+                .join(Community, CommunityStats.community_id == Community.id)\
+                .filter(Community.created <= yesterday_utc)\
+                .limit(page_size)\
+                .offset((page_number - 1) * page_size)\
+                .all()
 
             if not community_stats:
                 break
@@ -137,9 +143,13 @@ class Stats:
     @staticmethod
     def decide_interval(subscribers: int, posts_per_day: int) -> int:
         """Decide what the next update should be, based on subscriber count and posts per day"""
-        # No subscribers, or too little posts means check once per day
-        if subscribers < 2 or posts_per_day < 1:
+        # No subscribers = once a year
+        if subscribers < 2:
             return INTERVAL_DESERTED
+
+        # No posts or 1 user, twice per day
+        if posts_per_day < 1 or subscribers < 3:
+            return INTERVAL_BI_DAILY
 
         if subscribers >= 50 and posts_per_day >= 25:
             return INTERVAL_HIGHEST

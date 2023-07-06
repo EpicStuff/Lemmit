@@ -1,5 +1,5 @@
 import pytest
-from utils.stats import Stats, INTERVAL_DESERTED, INTERVAL_MEDIUM, INTERVAL_HIGHEST, INTERVAL_LOW
+from utils.stats import Stats, INTERVAL_BI_DAILY, INTERVAL_MEDIUM, INTERVAL_HIGHEST, INTERVAL_LOW, INTERVAL_DESERTED
 
 
 class TestStats:
@@ -7,11 +7,11 @@ class TestStats:
     def interval_test_data():
         """Yields subscriber, posts_per_day, expected"""
         return [
-            (10, 0, INTERVAL_DESERTED),
             (1, 1, INTERVAL_DESERTED),
-            (1, 100, INTERVAL_DESERTED),
+            (10, 0, INTERVAL_BI_DAILY),
+            (2, 100, INTERVAL_BI_DAILY),
             (100, 3, INTERVAL_LOW),
-            (2, 130, INTERVAL_LOW),
+            (5, 130, INTERVAL_LOW),
             (11, 10, INTERVAL_MEDIUM),
             (13, 41, INTERVAL_MEDIUM),
             (50, 41, INTERVAL_HIGHEST),
