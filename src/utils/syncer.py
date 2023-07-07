@@ -159,6 +159,15 @@ class Syncer:
                 self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
                 continue
 
+            if community.nsfw and not post['post']['nsfw']:
+                self._logger.error(f'NSFW request for "{community}" without NSFW flag, deleting')
+                self._lemmy.create_comment(post_id=post['post']['id'],
+                                           content="Requests for NSFW subs should be flagged as NSFW")
+                self._lemmy.remove_post(post_id=post['post']['id'], removed=True,
+                                        reason="Requests for NSFW subs should be flagged as NSFW")
+                self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
+                continue
+
             try:
                 lemmy_community = self._lemmy.create_community(
                     name=community.ident,

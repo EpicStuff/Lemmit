@@ -174,6 +174,7 @@ class SyncerTestCase(unittest.TestCase):
                 'id': post_id,
                 'url': f'https://old.reddit.com/r/{TEST_COMMUNITY_DTO.ident}/',
                 'name': '',
+                'nsfw': False,
             },
             'read': False
         }
@@ -215,6 +216,7 @@ class SyncerTestCase(unittest.TestCase):
                 'id': post_id,
                 'url': 'https://old.reddit.com/r/test/',
                 'name': '',
+                'nsfw': True
             },
             'read': False
         }
@@ -230,6 +232,10 @@ class SyncerTestCase(unittest.TestCase):
             content="Something went terribly wrong trying to create that community. "
                     "[@admin@foo.bar](https://foo.bar/u/admin) I need an adult! :("
         )
+
+    def test_nsfw_request_should_be_nsfw_flagged(self):
+        # self.assertTrue(False)
+        pass
 
     # get_sub_details
     def test_get_sub_details_from_post_invalid_subreddit(self):

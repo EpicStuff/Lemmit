@@ -84,6 +84,19 @@ class LemmyAPI:
 
         return self._make_request('GET', '/post/list', data=data, auth_required=auth_required)
 
+    def edit_post(self, post_id: int, body: str = None, language_id: int = None, name: str = None, nsfw: bool = None,
+                  url: str = None) -> Dict:
+        data = {'post_id': post_id}
+        self.__update_payload({body: body, language_id: language_id, name: name, nsfw: nsfw, url: url}, data)
+
+        return self._make_request('PUT', '/post', data=data, auth_required=True)
+
+    def remove_post(self, post_id: int, removed: bool = None, reason: str = None):
+        data = {'post_id': post_id}
+        self.__update_payload({'removed': removed, 'reason': reason}, data)
+
+        return self._make_request('POST', '/post/remove', data=data, auth_required=True)
+
     def mark_post_as_read(self, post_id: int, read: bool = True) -> Dict:
         return self._make_request('POST', '/post/mark_as_read', {'post_id': post_id, 'read': read}, auth_required=True)
 
