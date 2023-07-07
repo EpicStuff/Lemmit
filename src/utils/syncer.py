@@ -201,19 +201,24 @@ class Syncer:
 
     @staticmethod
     def prepare_post(post: PostDTO, community: Community) -> PostDTO:
+        old_reddit_link = post.reddit_link.replace('https://www.', 'https://old.')
         prefix = f"""##### This is an automated archive made by the [Lemmit Bot](https://lemmit.online/post/14692).
-The original was posted on [/r/{community.ident}]({post.reddit_link.replace('https://www.', 'https://old.')}) by [{post.author}](https://old.reddit.com{post.author}) on {post.created}.\n"""
+The original was posted on [/r/{community.ident}]({old_reddit_link}) by [{post.author}](https://old.reddit.com{post.author}) on {post.created}.\n"""
         if len(post.title) >= 200:
             prefix = prefix + f"\n**Original Title**: {post.title}\n"
             post.title = post.title[:196] + '...'
         elif not VALID_TITLE.match(post.title):
             prefix = prefix + f"\n**Original Title**: {post.title}\n"
             post.title = post.title.rstrip() + '...'
-        if post.external_link and len(post.external_link) > 512:
-            prefix = prefix + f"\n**Original URL**: {post.external_link}\n"
-            post.external_link = None
-        if post.external_link and post.external_link.startswith('/'):
-            post.external_link = 'https://old.reddit.com' + post.external_link
+        if post.external_link:
+            if len(post.external_link) > 512:
+                prefix = prefix + f"\n**Original URL**: {post.external_link}\n"
+                post.external_link = None
+            if post.external_link.startswith('/'):
+                post.external_link = 'https://old.reddit.com' + post.external_link
+            if post.external_link.startswith('https://v.redd.it') \
+                    or post.external_link.startswith('https://i.redd.it'):
+                post.external_link = old_reddit_link
 
         post.body = prefix + ('***\n' + post.body if post.body else '')
 

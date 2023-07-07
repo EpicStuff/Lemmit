@@ -257,9 +257,30 @@ class SyncerTestCase(unittest.TestCase):
         with self.assertRaisesRegex(SubredditRequestException, r"There already is a 'already_existing' community at"):
             self.syncer.get_community_details_from_request_post(post)
 
+    def test_prepare_post_relative_link(self):
+        post = TEST_POSTS[0]
+        post.reddit_link = 'https://www.reddit.com/r/lookatthishere'
+        post.external_link = '/u/foobar/1'
 
-if __name__ == '__main__':
-    unittest.main()
+        prepared_post = self.syncer.prepare_post(post, TEST_COMMUNITY)
+        self.assertEqual('https://old.reddit.com/u/foobar/1', prepared_post.external_link)
+
+    def test_prepare_post_iv_reddit(self):
+        """Rewrite to old.reddit on v.reddit.com and i.reddit.com"""
+        vpost = TEST_POSTS[0]
+        vpost.reddit_link = 'https://www.reddit.com/r/CombatFootage/comments/14su2qc/blabla/'
+        vpost.external_link = 'https://v.redd.it/7ew6zl18egab1'
+
+        prepared_post = self.syncer.prepare_post(vpost, TEST_COMMUNITY)
+        self.assertEqual('https://old.reddit.com/r/CombatFootage/comments/14su2qc/blabla/', prepared_post.external_link)
+
+        ipost = TEST_POSTS[1]
+        ipost.reddit_link = 'https://www.reddit.com/r/thisismylifenow/comments/14pcgfl/when_your_airbnb_/'
+        ipost.external_link = 'https://i.redd.it/jhy4fy4jgp9b1.jpg'
+
+        prepared_post = self.syncer.prepare_post(ipost, TEST_COMMUNITY)
+        self.assertEqual('https://old.reddit.com/r/thisismylifenow/comments/14pcgfl/when_your_airbnb_/', prepared_post.external_link)
+
 
 
 if __name__ == '__main__':
