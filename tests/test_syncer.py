@@ -272,7 +272,7 @@ class SyncerTestCase(unittest.TestCase):
         self.assertEqual('https://old.reddit.com/u/foobar/1', prepared_post.external_link)
 
     def test_prepare_post_iv_reddit(self):
-        """Rewrite to old.reddit on v.reddit.com and i.reddit.com"""
+        """Rewrite to old.reddit on v.reddit.com But not i.reddit.com"""
         vpost = TEST_POSTS[0]
         vpost.reddit_link = 'https://www.reddit.com/r/CombatFootage/comments/14su2qc/blabla/'
         vpost.external_link = 'https://v.redd.it/7ew6zl18egab1'
@@ -285,7 +285,7 @@ class SyncerTestCase(unittest.TestCase):
         ipost.external_link = 'https://i.redd.it/jhy4fy4jgp9b1.jpg'
 
         prepared_post = self.syncer.prepare_post(ipost, TEST_COMMUNITY)
-        self.assertEqual('https://old.reddit.com/r/thisismylifenow/comments/14pcgfl/when_your_airbnb_/', prepared_post.external_link)
+        self.assertEqual('https://i.redd.it/jhy4fy4jgp9b1.jpg', prepared_post.external_link)
 
 
 

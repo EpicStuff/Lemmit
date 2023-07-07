@@ -225,8 +225,7 @@ The original was posted on [/r/{community.ident}]({old_reddit_link}) by [{post.a
                 post.external_link = None
             if post.external_link.startswith('/'):
                 post.external_link = 'https://old.reddit.com' + post.external_link
-            if post.external_link.startswith('https://v.redd.it') \
-                    or post.external_link.startswith('https://i.redd.it'):
+            if post.external_link.startswith('https://v.redd.it'):
                 post.external_link = old_reddit_link
 
         post.body = prefix + ('***\n' + post.body if post.body else '')
