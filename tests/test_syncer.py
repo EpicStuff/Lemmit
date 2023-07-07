@@ -129,7 +129,7 @@ class SyncerTestCase(unittest.TestCase):
             url='https://nope',
             nsfw=False
         )
-        self.syncer._logger.error.assert_called_once_with('HTTPError trying to post https://red.dit/2: Error: None')
+        self.syncer._logger.error.assert_called_once_with('HTTPError trying to post https://www.reddit.com/r/barfoo/2: Error: None')
         self.db_session.add.assert_not_called()
         self.db_session.commit.assert_not_called()
 
