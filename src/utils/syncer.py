@@ -14,6 +14,7 @@ from lemmy.api import LemmyAPI
 from models.models import Community, PostDTO, Post, CommunityDTO, SORT_HOT, CommunityStats
 from reddit.reader import RedditReader
 from utils import format_duration
+from utils.exceptions import SubredditRequestException, HttpNotFoundException
 
 NEW_SUB_CHECK_INTERVAL: int = 180  # Seconds between checking for new messages
 PER_SUB_CHECK_INTERVAL: int = 600  # Minimal wait time before checking a subreddit for new posts
@@ -70,6 +71,9 @@ class Syncer:
                 self._logger.info(post)
                 try:
                     post = self._reddit_reader.get_post_details(post)
+                except HttpNotFoundException as e:
+                    self._logger.error(str(e) + ", skipping.")
+                    continue
                 except BaseException as e:
                     self._logger.error(f"Error trying to retrieve post details, try again in a bit; {str(e)}")
                     return
@@ -288,7 +292,3 @@ The original was posted on [/r/{community.ident}]({old_reddit_link}) by [{post.a
 
     def community_exists(self, ident: str) -> bool:
         return self._db.query(Community).filter_by(ident=ident).first() is not None
-
-
-class SubredditRequestException(Exception):
-    """Exception when trying to add a new subreddit"""

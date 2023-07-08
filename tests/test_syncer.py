@@ -9,7 +9,8 @@ from lemmy.api import LemmyAPI
 from reddit.reader import RedditReader
 from models.models import SORT_NEW
 from tests import TEST_COMMUNITY, TEST_POSTS, LEMMY_POST_RETURN, TEST_COMMUNITY_DTO
-from utils.syncer import Syncer, SubredditRequestException
+from utils.syncer import Syncer
+from utils.exceptions import SubredditRequestException
 
 
 class SyncerTestCase(unittest.TestCase):
