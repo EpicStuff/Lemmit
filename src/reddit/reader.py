@@ -45,9 +45,9 @@ class RedditReader:
     def get_subreddit_topics(self, subreddit: str, mode: str = SORT_HOT, since: datetime = None) -> List[PostDTO]:
         """Get a topics from a subreddit through its RSS feed"""
         if mode == SORT_NEW:
-            feed_url = f"https://www.reddit.com/r/{subreddit}/new/.rss?sort=new"
+            feed_url = f"https://old.reddit.com/r/{subreddit}/new/.rss?sort=new"
         else:
-            feed_url = f"https://www.reddit.com/r/{subreddit}/.rss"
+            feed_url = f"https://old.reddit.com/r/{subreddit}/.rss"
 
         feed = feedparser.parse(self._request('GET', feed_url).text)
 

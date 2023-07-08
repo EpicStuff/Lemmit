@@ -256,12 +256,12 @@ The original was posted on [/r/{community.ident}]({old_reddit_link}) by [{post.a
         """Create a new Lemmy Community based on request post"""
         # Try and extract the identifier
         ident = None
-        if post['post']['url']:
+        if post.get('post', []).get('url'):
             try:
                 ident = RedditReader.get_subreddit_ident(post['post']['url']).lower()
             except ValueError:
                 pass
-        elif post['post']['name']:
+        elif post.get('post', []).get('name'):
             try:
                 ident = RedditReader.get_subreddit_ident(post['post']['name']).lower()
             except ValueError:
