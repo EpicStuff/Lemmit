@@ -90,15 +90,20 @@ class Syncer:
         """Filter out any posts that have already been synced to Lemmy"""
         reddit_links = []
         for post in posts:
+            reddit_links.append(post.reddit_link)
             if post.reddit_link.startswith("https://old.reddit"):
-                reddit_links.append(post.reddit_link)
                 reddit_links.append(post.reddit_link.replace("old.reddit", "www.reddit", 1))
             elif post.reddit_link.startswith("https://www.reddit"):
-                reddit_links.append(post.reddit_link)
                 reddit_links.append(post.reddit_link.replace("www.reddit", "old.reddit", 1))
 
         existing_links_raw = self._db.query(Post.reddit_link).filter(Post.reddit_link.in_(reddit_links)).all()
-        existing_links = [link[0] for link in existing_links_raw]
+        existing_links = []
+        for existing_link in existing_links_raw:
+            existing_links.append(existing_link[0])
+            if existing_link[0].startswith('https://old.reddit'):
+                existing_links.append(existing_link[0].replace("old.reddit", "www.reddit", 1))
+            elif existing_link[0].startswith('https://www.reddit'):
+                existing_links.append(existing_link[0].replace("www.reddit", "old.reddit", 1))
 
         filtered_posts = []
         for post in posts:
