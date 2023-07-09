@@ -15,12 +15,12 @@ from models.models import Community, CommunityStats, Post
 COMMUNITY_UPDATE_INTERVAL = 120
 
 # Minimum amount of minutes between checks
-INTERVAL_DESERTED = 3600 * 24 * 365
+INTERVAL_DESERTED = 60 * 24 * 365
 INTERVAL_BI_DAILY = 60 * 12
-INTERVAL_LOW = 120
-INTERVAL_MEDIUM = 60
-INTERVAL_HIGH = 30
-INTERVAL_HIGHEST = 10
+INTERVAL_LOW = 180
+INTERVAL_MEDIUM = 90
+INTERVAL_HIGH = 45
+INTERVAL_HIGHEST = 15
 
 
 # Amount of Communities to update per time

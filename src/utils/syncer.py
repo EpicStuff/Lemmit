@@ -87,23 +87,23 @@ class Syncer:
             self._logger.debug('No community due for update')
 
     def filter_posted(self, posts: List[PostDTO]) -> List[PostDTO]:
-        """Filter out any posts that have already been synced to Lemmy"""
-        reddit_links = []
+        """Filter out any posts that have already been synced to Lemmy (and compensate for both www/old reddit links)"""
+        reddit_links = set()
+        existing_links = set()
         for post in posts:
-            reddit_links.append(post.reddit_link)
+            reddit_links.add(post.reddit_link)
             if post.reddit_link.startswith("https://old.reddit"):
-                reddit_links.append(post.reddit_link.replace("old.reddit", "www.reddit", 1))
+                reddit_links.add(post.reddit_link.replace("old.reddit", "www.reddit", 1))
             elif post.reddit_link.startswith("https://www.reddit"):
-                reddit_links.append(post.reddit_link.replace("www.reddit", "old.reddit", 1))
+                reddit_links.add(post.reddit_link.replace("www.reddit", "old.reddit", 1))
 
         existing_links_raw = self._db.query(Post.reddit_link).filter(Post.reddit_link.in_(reddit_links)).all()
-        existing_links = []
         for existing_link in existing_links_raw:
-            existing_links.append(existing_link[0])
+            existing_links.add(existing_link[0])
             if existing_link[0].startswith('https://old.reddit'):
-                existing_links.append(existing_link[0].replace("old.reddit", "www.reddit", 1))
+                existing_links.add(existing_link[0].replace("old.reddit", "www.reddit", 1))
             elif existing_link[0].startswith('https://www.reddit'):
-                existing_links.append(existing_link[0].replace("www.reddit", "old.reddit", 1))
+                existing_links.add(existing_link[0].replace("www.reddit", "old.reddit", 1))
 
         filtered_posts = []
         for post in posts:
