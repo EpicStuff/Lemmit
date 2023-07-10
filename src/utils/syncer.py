@@ -122,7 +122,7 @@ class Syncer:
                 nsfw=post.nsfw
             )
         except HTTPError as e:
-            if e.response.status_code == 504 and 'Time-out' in str(e.response.text):
+            if e.response.status_code == 504 and ('time-out' in str(e.response.text).lower()):
                 # ron_burgundy_-_I_dont_believe_you.gif
                 self._logger.warning(f'Timeout when trying to post {post.reddit_link}: {str(e)}\nSuuuure...')
                 # TODO: check if post was actually placed through a search.
