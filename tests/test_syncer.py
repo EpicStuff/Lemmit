@@ -21,13 +21,15 @@ class SyncerTestCase(unittest.TestCase):
         self.lemmy_api = MagicMock(spec=LemmyAPI, base_url='https://foo.bar')
 
         # Create a Syncer instance for testing
-        self.syncer = Syncer(db=self.db_session, reddit_reader=self.reddit_reader, lemmy=self.lemmy_api)
+        self.syncer = Syncer(db=self.db_session, reddit_reader=self.reddit_reader, lemmy=self.lemmy_api,
+                             thresh_ratio=0.5, thresh_upvotes=5)
         self.syncer._logger = MagicMock(spec=logging.Logger)
 
     def test_scrape_new_posts(self):
         """Happy path"""
         # Mock the necessary objects
         self.reddit_reader.get_subreddit_topics.return_value = TEST_POSTS
+        self.reddit_reader.get_subreddit_topics_json.return_value = TEST_POSTS
 
         # get_post_details just returns its input
         self.reddit_reader.get_post_details.side_effect = lambda x: x
@@ -39,7 +41,8 @@ class SyncerTestCase(unittest.TestCase):
         self.syncer.scrape_new_posts()
 
         # Assert that the appropriate methods were called with the expected arguments
-        self.reddit_reader.get_subreddit_topics.assert_called_once_with(TEST_COMMUNITY.ident, mode=SORT_NEW)
+        # self.reddit_reader.get_subreddit_topics.assert_called_once_with(TEST_COMMUNITY.ident, mode=SORT_NEW)
+        self.reddit_reader.get_subreddit_topics_json.assert_called_once_with(TEST_COMMUNITY.ident, mode=SORT_NEW)
         self.lemmy_api.create_post.assert_called()
 
         # Assert that the expected number of posts were created
@@ -49,6 +52,7 @@ class SyncerTestCase(unittest.TestCase):
     def test_scrape_new_posts_get_subreddit_topics_error_fails_gracefully(self):
         # Mock the necessary objects
         self.reddit_reader.get_subreddit_topics.side_effect = HTTPError("Error")
+        self.reddit_reader.get_subreddit_topics_json.side_effect = HTTPError("Error")
 
         # Mock the return value of self.next_scrape_community
         self.syncer.next_scrape_community = MagicMock(return_value=TEST_COMMUNITY)
@@ -57,13 +61,15 @@ class SyncerTestCase(unittest.TestCase):
         self.syncer.scrape_new_posts()
 
         # Assert that the appropriate methods were called with the expected arguments
-        self.reddit_reader.get_subreddit_topics.assert_called_once_with(TEST_COMMUNITY.ident, mode=SORT_NEW)
+        # self.reddit_reader.get_subreddit_topics.assert_called_once_with(TEST_COMMUNITY.ident, mode=SORT_NEW)
+        self.reddit_reader.get_subreddit_topics_json.assert_called_once_with(TEST_COMMUNITY.ident, mode=SORT_NEW)
         self.lemmy_api.create_post.assert_not_called()
         self.syncer._logger.error.assert_called_once()
 
     def test_scrape_new_posts_get_post_details_error_fails_gracefully(self):
         # Mock the necessary objects
         self.reddit_reader.get_subreddit_topics.return_value = TEST_POSTS
+        self.reddit_reader.get_subreddit_topics_json.return_value = TEST_POSTS
         self.reddit_reader.get_post_details.side_effect = HTTPError("Error")
 
         # Mock the return value of self.next_scrape_community
@@ -73,7 +79,8 @@ class SyncerTestCase(unittest.TestCase):
         self.syncer.scrape_new_posts()
 
         # Assert that the appropriate methods were called with the expected arguments
-        self.reddit_reader.get_subreddit_topics.assert_called_once_with(TEST_COMMUNITY.ident, mode=SORT_NEW)
+        # self.reddit_reader.get_subreddit_topics.assert_called_once_with(TEST_COMMUNITY.ident, mode=SORT_NEW)
+        self.reddit_reader.get_subreddit_topics_json.assert_called_once_with(TEST_COMMUNITY.ident, mode=SORT_NEW)
         self.syncer._logger.error.assert_called_once()
 
         # Assert nothing else is done
