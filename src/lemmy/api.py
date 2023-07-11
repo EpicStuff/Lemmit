@@ -65,12 +65,37 @@ class LemmyAPI:
 
         return self._make_request('POST', '/community', data, auth_required=True)
 
+    def community_list(self, limit: int = 50, page: int = 0, sort: str = 'Old', _type: str = 'Local'):
+        data = {}
+        self.__update_payload({'limit': limit, 'page': page, 'sort': sort, '_type': _type}, data)
+
+        return self._make_request('POST', '/community/list', data, auth_required=False)
+
+    def community(self, id: int = None, name: str = None):
+        data = {}
+        self.__update_payload({'id': id, 'name': name}, data)
+
+        return self._make_request('GET', '/community', data, auth_required=False)
+
     def get_posts(self, community_name: str = None, community_id: int = None, limit: int = None, page: int = None,
                   sort: str = 'New', auth_required: bool = False) -> Dict:
         data = self.__update_payload({}, {'community_name': community_name, 'community_id': community_id, 'limit': limit,
                                    'page': page, 'sort': sort})
 
         return self._make_request('GET', '/post/list', data=data, auth_required=auth_required)
+
+    def edit_post(self, post_id: int, body: str = None, language_id: int = None, name: str = None, nsfw: bool = None,
+                  url: str = None) -> Dict:
+        data = {'post_id': post_id}
+        self.__update_payload({body: body, language_id: language_id, name: name, nsfw: nsfw, url: url}, data)
+
+        return self._make_request('PUT', '/post', data=data, auth_required=True)
+
+    def remove_post(self, post_id: int, removed: bool = None, reason: str = None):
+        data = {'post_id': post_id}
+        self.__update_payload({'removed': removed, 'reason': reason}, data)
+
+        return self._make_request('POST', '/post/remove', data=data, auth_required=True)
 
     def mark_post_as_read(self, post_id: int, read: bool = True) -> Dict:
         return self._make_request('POST', '/post/mark_as_read', {'post_id': post_id, 'read': read}, auth_required=True)
@@ -87,7 +112,7 @@ class LemmyAPI:
     @staticmethod
     def community_uri(ident: str, hostname: str):
         """Creates a markdown-link relative link to a specific community."""
-        return f"[/c/{ident}@{hostname}](/c/{ident}@{hostname})"
+        return f"[!{ident}@{hostname}](/c/{ident}@{hostname})"
 
     def __is_token_near_expiry(self) -> bool:
         if self.__jwt == '':

@@ -9,7 +9,8 @@ from lemmy.api import LemmyAPI
 from reddit.reader import RedditReader
 from models.models import SORT_NEW
 from tests import TEST_COMMUNITY, TEST_POSTS, LEMMY_POST_RETURN, TEST_COMMUNITY_DTO
-from utils.syncer import Syncer, SubredditRequestException
+from utils.syncer import Syncer
+from utils.exceptions import SubredditRequestException
 
 
 class SyncerTestCase(unittest.TestCase):
@@ -129,7 +130,7 @@ class SyncerTestCase(unittest.TestCase):
             url='https://nope',
             nsfw=False
         )
-        self.syncer._logger.error.assert_called_once_with('HTTPError trying to post https://red.dit/2: Error: None')
+        self.syncer._logger.error.assert_called_once_with('HTTPError trying to post https://www.reddit.com/r/barfoo/2: Error: None')
         self.db_session.add.assert_not_called()
         self.db_session.commit.assert_not_called()
 
@@ -174,6 +175,7 @@ class SyncerTestCase(unittest.TestCase):
                 'id': post_id,
                 'url': f'https://old.reddit.com/r/{TEST_COMMUNITY_DTO.ident}/',
                 'name': '',
+                'nsfw': False,
             },
             'read': False
         }
@@ -215,6 +217,7 @@ class SyncerTestCase(unittest.TestCase):
                 'id': post_id,
                 'url': 'https://old.reddit.com/r/test/',
                 'name': '',
+                'nsfw': True
             },
             'read': False
         }
@@ -230,6 +233,10 @@ class SyncerTestCase(unittest.TestCase):
             content="Something went terribly wrong trying to create that community. "
                     "[@admin@foo.bar](https://foo.bar/u/admin) I need an adult! :("
         )
+
+    def test_nsfw_request_should_be_nsfw_flagged(self):
+        # self.assertTrue(False)
+        pass
 
     # get_sub_details
     def test_get_sub_details_from_post_invalid_subreddit(self):
@@ -257,9 +264,30 @@ class SyncerTestCase(unittest.TestCase):
         with self.assertRaisesRegex(SubredditRequestException, r"There already is a 'already_existing' community at"):
             self.syncer.get_community_details_from_request_post(post)
 
+    def test_prepare_post_relative_link(self):
+        post = TEST_POSTS[0]
+        post.reddit_link = 'https://www.reddit.com/r/lookatthishere'
+        post.external_link = '/u/foobar/1'
 
-if __name__ == '__main__':
-    unittest.main()
+        prepared_post = self.syncer.prepare_post(post, TEST_COMMUNITY)
+        self.assertEqual('https://old.reddit.com/u/foobar/1', prepared_post.external_link)
+
+    def test_prepare_post_iv_reddit(self):
+        """Rewrite to old.reddit on v.reddit.com But not i.reddit.com"""
+        vpost = TEST_POSTS[0]
+        vpost.reddit_link = 'https://www.reddit.com/r/CombatFootage/comments/14su2qc/blabla/'
+        vpost.external_link = 'https://v.redd.it/7ew6zl18egab1'
+
+        prepared_post = self.syncer.prepare_post(vpost, TEST_COMMUNITY)
+        self.assertEqual('https://old.reddit.com/r/CombatFootage/comments/14su2qc/blabla/', prepared_post.external_link)
+
+        ipost = TEST_POSTS[1]
+        ipost.reddit_link = 'https://www.reddit.com/r/thisismylifenow/comments/14pcgfl/when_your_airbnb_/'
+        ipost.external_link = 'https://i.redd.it/jhy4fy4jgp9b1.jpg'
+
+        prepared_post = self.syncer.prepare_post(ipost, TEST_COMMUNITY)
+        self.assertEqual('https://i.redd.it/jhy4fy4jgp9b1.jpg', prepared_post.external_link)
+
 
 
 if __name__ == '__main__':

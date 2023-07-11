@@ -1,4 +1,4 @@
 /.env
-**/lemmit.sqlite
+**/*.sqlite
 .pytest_cache
 **/__pycache__

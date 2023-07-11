@@ -13,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 
 from lemmy.api import LemmyAPI
 from reddit.reader import RedditReader
+from utils.stats import Stats
 from utils.syncer import Syncer
 
 syncer: Syncer
@@ -57,6 +58,7 @@ if __name__ == '__main__':
                          password=os.getenv('LEMMY_PASSWORD'))
     reddit_scraper = RedditReader()
     syncer = Syncer(db=db_session, reddit_reader=reddit_scraper, lemmy=lemmy_api, request_community=request_community)
+    stats = Stats(db=db_session, lemmy=lemmy_api)
 
     if request_community is None:
         logging.warning('No request community is set - will not check for new requests.')
@@ -65,8 +67,11 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
+    stats.recalculate_stats()
+
     while keep_running:
         if request_community:
             syncer.check_new_subs()
+        stats.update_community_stats()
         syncer.scrape_new_posts()
-        time.sleep(2)
+        time.sleep(1)

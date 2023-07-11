@@ -1,19 +1,20 @@
 import logging
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from operator import attrgetter
 from typing import Type, List, Optional
 from urllib.parse import urlparse
 
 from requests import HTTPError
-from sqlalchemy import or_
+from sqlalchemy import or_, func, String
 from sqlalchemy.orm import Session as DbSession
 
 from lemmy.api import LemmyAPI
-from models.models import Community, PostDTO, Post, CommunityDTO, SORT_HOT
+from models.models import Community, PostDTO, Post, CommunityDTO, SORT_HOT, CommunityStats
 from reddit.reader import RedditReader
 from utils import format_duration
+from utils.exceptions import SubredditRequestException, HttpNotFoundException
 
 NEW_SUB_CHECK_INTERVAL: int = 180  # Seconds between checking for new messages
 PER_SUB_CHECK_INTERVAL: int = 600  # Minimal wait time before checking a subreddit for new posts
@@ -35,23 +36,26 @@ class Syncer:
 
     def next_scrape_community(self) -> Optional[Type[Community]]:
         """Get the next community that is due for scraping."""
-        return self._db.query(Community) \
+        # Funky method to get the next scrape datetime for a community
+        threshold = func.datetime(Community.last_scrape,
+                                  '+' + func.cast(CommunityStats.min_interval, String) + ' minutes')
+        query = self._db.query(Community).join(CommunityStats, Community.id == CommunityStats.community_id) \
             .filter(
-            Community.enabled.is_(True),
             or_(
-                Community.last_scrape <= datetime.utcnow() - timedelta(seconds=PER_SUB_CHECK_INTERVAL),
-                Community.last_scrape.is_(None)
+                Community.last_scrape.is_(None),
+                threshold < func.datetime('now')
             )
         ) \
-            .order_by(Community.last_scrape) \
-            .first()
+            .order_by(threshold)
+        return query.first()
 
     def scrape_new_posts(self):
         community = self.next_scrape_community()
 
         if community:
             last_time = format_duration(community.last_scrape) if community.last_scrape else "FOREVER"
-            self._logger.info(f'Scraping subreddit: {community.ident}. Last time {last_time} ago')
+            self._logger.info(f'Scraping subreddit: {community.ident}. '
+                              f'Last time {last_time} ago, interval {community.stats.min_interval} minutes')
             try:
                 posts = self._reddit_reader.get_subreddit_topics(community.ident, mode=community.sorting)
             except BaseException as e:
@@ -67,6 +71,9 @@ class Syncer:
                 self._logger.info(post)
                 try:
                     post = self._reddit_reader.get_post_details(post)
+                except HttpNotFoundException as e:
+                    self._logger.error(str(e) + ", skipping.")
+                    continue
                 except BaseException as e:
                     self._logger.error(f"Error trying to retrieve post details, try again in a bit; {str(e)}")
                     return
@@ -80,10 +87,23 @@ class Syncer:
             self._logger.debug('No community due for update')
 
     def filter_posted(self, posts: List[PostDTO]) -> List[PostDTO]:
-        """Filter out any posts that have already been synced to Lemmy"""
-        reddit_links = [post.reddit_link for post in posts]
+        """Filter out any posts that have already been synced to Lemmy (and compensate for both www/old reddit links)"""
+        reddit_links = set()
+        existing_links = set()
+        for post in posts:
+            reddit_links.add(post.reddit_link)
+            if post.reddit_link.startswith("https://old.reddit"):
+                reddit_links.add(post.reddit_link.replace("old.reddit", "www.reddit", 1))
+            elif post.reddit_link.startswith("https://www.reddit"):
+                reddit_links.add(post.reddit_link.replace("www.reddit", "old.reddit", 1))
+
         existing_links_raw = self._db.query(Post.reddit_link).filter(Post.reddit_link.in_(reddit_links)).all()
-        existing_links = [link[0] for link in existing_links_raw]
+        for existing_link in existing_links_raw:
+            existing_links.add(existing_link[0])
+            if existing_link[0].startswith('https://old.reddit'):
+                existing_links.add(existing_link[0].replace("old.reddit", "www.reddit", 1))
+            elif existing_link[0].startswith('https://www.reddit'):
+                existing_links.add(existing_link[0].replace("www.reddit", "old.reddit", 1))
 
         filtered_posts = []
         for post in posts:
@@ -102,21 +122,25 @@ class Syncer:
                 nsfw=post.nsfw
             )
         except HTTPError as e:
-            if e.response.status_code == 504 and 'Time-out' in str(e.response.text):
+            if e.response.status_code == 504 and ('time-out' in str(e.response.text).lower()):
                 # ron_burgundy_-_I_dont_believe_you.gif
                 self._logger.warning(f'Timeout when trying to post {post.reddit_link}: {str(e)}\nSuuuure...')
                 # TODO: check if post was actually placed through a search.
                 #  If not, return, so it gets picked up next time
                 lemmy_post = {'post_view': {'post': {'ap_id': f'https://some.post.in/{community.ident}'}}}  # hack
             else:
+                try:
+                    message = f'{str(e)}: {e.response.content}'
+                except AttributeError:
+                    message = str(e)
                 self._logger.error(
-                    f"HTTPError trying to post {post.reddit_link}: {str(e)}: {str(e.response.content)}"
+                    f"HTTPError trying to post {post.reddit_link}: {message}"
                 )
                 return
 
         except Exception as e:
             self._logger.error(
-                f"Something went horribly wrong when posting {post.reddit_link}: {str(e)}: {str(e.response.content)}"
+                f"Something went horribly wrong when posting {post.reddit_link}: {str(e)}"
             )
             return
 
@@ -149,6 +173,15 @@ class Syncer:
             except SubredditRequestException as e:
                 self._logger.error(str(e))
                 self._lemmy.create_comment(post_id=post['post']['id'], content=str(e))
+                self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
+                continue
+
+            if community.nsfw and not post['post']['nsfw']:
+                self._logger.error(f'NSFW request for "{community}" without NSFW flag, deleting')
+                self._lemmy.create_comment(post_id=post['post']['id'],
+                                           content="Requests for NSFW subs should be flagged as NSFW")
+                self._lemmy.remove_post(post_id=post['post']['id'], removed=True,
+                                        reason="Requests for NSFW subs should be flagged as NSFW")
                 self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
                 continue
 
@@ -194,19 +227,23 @@ class Syncer:
 
     @staticmethod
     def prepare_post(post: PostDTO, community: Community) -> PostDTO:
-        prefix = f"""##### This is an automated archive made by the [Lemmit Bot](https://lemmit.online/).
-The original was posted on [/r/{community.ident}]({post.reddit_link.replace('https://www.', 'https://old.')}) by [{post.author}](https://old.reddit.com{post.author}) on {post.created}.\n"""
+        old_reddit_link = post.reddit_link.replace('https://www.', 'https://old.')
+        prefix = f"""##### This is an automated archive made by the [Lemmit Bot](https://lemmit.online/post/14692).
+The original was posted on [/r/{community.ident}]({old_reddit_link}) by [{post.author}](https://old.reddit.com{post.author}) on {post.created}.\n"""
         if len(post.title) >= 200:
             prefix = prefix + f"\n**Original Title**: {post.title}\n"
             post.title = post.title[:196] + '...'
         elif not VALID_TITLE.match(post.title):
             prefix = prefix + f"\n**Original Title**: {post.title}\n"
             post.title = post.title.rstrip() + '...'
-        if post.external_link and len(post.external_link) > 512:
-            prefix = prefix + f"\n**Original URL**: {post.external_link}\n"
-            post.external_link = None
-        if post.external_link and post.external_link.startswith('/'):
-            post.external_link = 'https://old.reddit.com' + post.external_link
+        if post.external_link is not None:
+            if len(post.external_link) > 512:
+                prefix = prefix + f"\n**Original URL**: {post.external_link}\n"
+                post.external_link = None
+            elif post.external_link.startswith('/'):
+                post.external_link = 'https://old.reddit.com' + post.external_link
+            elif post.external_link.startswith('https://v.redd.it'):
+                post.external_link = old_reddit_link
 
         post.body = prefix + ('***\n' + post.body if post.body else '')
 
@@ -232,12 +269,12 @@ The original was posted on [/r/{community.ident}]({post.reddit_link.replace('htt
         """Create a new Lemmy Community based on request post"""
         # Try and extract the identifier
         ident = None
-        if post['post']['url']:
+        if post.get('post', []).get('url'):
             try:
                 ident = RedditReader.get_subreddit_ident(post['post']['url']).lower()
             except ValueError:
                 pass
-        elif post['post']['name']:
+        elif post.get('post', []).get('name'):
             try:
                 ident = RedditReader.get_subreddit_ident(post['post']['name']).lower()
             except ValueError:
@@ -268,7 +305,3 @@ The original was posted on [/r/{community.ident}]({post.reddit_link.replace('htt
 
     def community_exists(self, ident: str) -> bool:
         return self._db.query(Community).filter_by(ident=ident).first() is not None
-
-
-class SubredditRequestException(Exception):
-    """Exception when trying to add a new subreddit"""

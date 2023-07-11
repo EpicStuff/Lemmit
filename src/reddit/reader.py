@@ -12,6 +12,7 @@ from requests import HTTPError
 
 from models.models import PostDTO, SORT_HOT, SORT_NEW, CommunityDTO
 from reddit import USER_AGENT
+from utils.exceptions import HttpNotFoundException
 
 _DELAY_TIME = 3  # This many seconds between requests
 
@@ -44,9 +45,9 @@ class RedditReader:
     def get_subreddit_topics(self, subreddit: str, mode: str = SORT_HOT, since: datetime = None) -> List[PostDTO]:
         """Get a topics from a subreddit through its RSS feed"""
         if mode == SORT_NEW:
-            feed_url = f"https://www.reddit.com/r/{subreddit}/new/.rss?sort=new"
+            feed_url = f"https://old.reddit.com/r/{subreddit}/new/.rss?sort=new"
         else:
-            feed_url = f"https://www.reddit.com/r/{subreddit}/.rss"
+            feed_url = f"https://old.reddit.com/r/{subreddit}/.rss"
 
         feed = feedparser.parse(self._request('GET', feed_url).text)
 
@@ -65,8 +66,10 @@ class RedditReader:
         old_url = post.reddit_link.replace('www', 'old')
         response = self._request('GET', old_url)
 
+        if response.status_code == 404:
+            raise HttpNotFoundException(f"Couldn't find post on {old_url}", response=response, request=response.request)
         if response.status_code != 200:
-            raise HTTPError("Couldn't retrieve post detail page")
+            raise HTTPError(f"Couldn't retrieve post detail page: {response.status_code}")
 
         soup = BeautifulSoup(response.text, "html.parser")
 
