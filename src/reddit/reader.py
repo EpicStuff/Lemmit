@@ -58,7 +58,31 @@ class RedditReader:
             author = entry.author if 'author' in entry else '[deleted]'
             if not since or updated > since:
                 posts.append(PostDTO(reddit_link=entry.link, title=entry.title, created=created, updated=updated,
-                                     author=author))
+                                     author=author, upvote_ratio=1.0))
+        return posts
+
+    def get_subreddit_topics_json(self, subreddit: str, mode: str = SORT_HOT, since: datetime = None) -> List[PostDTO]:
+        """Get topics from a subreddit through JSON"""
+        if mode == SORT_NEW:
+            feed_url = f"https://old.reddit.com/r/{subreddit}/new/.json?sort=new"
+        else:
+            feed_url = f"https://old.reddit.com/r/{subreddit}/.json"
+
+        posts = []
+        response = self._request('GET', feed_url).json();
+        for entry in response.get('data', []).get('children', []):
+            data = entry.get('data', [])
+            posts.append(PostDTO(
+                reddit_link='https://old.reddit.com' + data.get('permalink'),
+                title=data.get('title'),
+                created=datetime.fromtimestamp(data.get('created_utc')),
+                updated=datetime.fromtimestamp(data.get('created_utc')),
+                author='/u/' + data.get('author'),
+                external_link=data.get('url', None),
+                nsfw=data.get('over_18', None),
+                upvotes=data.get('ups', 1),
+                upvote_ratio=data.get('upvote_ratio', 0.5)
+            ))
         return posts
 
     def get_post_details(self, post: PostDTO) -> PostDTO:

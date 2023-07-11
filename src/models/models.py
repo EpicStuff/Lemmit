@@ -62,6 +62,8 @@ class PostDTO:
     external_link: Optional[str] = None
     body: Optional[str] = None
     nsfw: bool = False
+    upvotes: int = 2
+    upvote_ratio: float = 1.0
 
     def __str__(self) -> str:
         return f"'{self.title}' at {self.reddit_link} updated: {self.updated}"

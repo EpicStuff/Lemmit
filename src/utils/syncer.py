@@ -26,13 +26,16 @@ VALID_TITLE = re.compile(r".*\S{3,}.*")
 class Syncer:
     new_sub_check: int = None  # Last timestamp request checker ran
 
-    def __init__(self, db: DbSession, reddit_reader: RedditReader, lemmy: LemmyAPI, request_community: str = None):
+    def __init__(self, db: DbSession, reddit_reader: RedditReader, lemmy: LemmyAPI, thresh_upvotes: int,
+                 thresh_ratio: float, request_community: str = None):
         self._db: DbSession = db
         self._reddit_reader: RedditReader = reddit_reader
         self._lemmy: LemmyAPI = lemmy
         self._logger = logging.getLogger(__name__)
         self.request_community = request_community
         self.lemmy_hostname: str = urlparse(lemmy.base_url).hostname
+        self.thresh_votes: int = thresh_upvotes
+        self.thresh_ratio: float = thresh_ratio
 
     def next_scrape_community(self) -> Optional[Type[Community]]:
         """Get the next community that is due for scraping."""
@@ -57,11 +60,13 @@ class Syncer:
             self._logger.info(f'Scraping subreddit: {community.ident}. '
                               f'Last time {last_time} ago, interval {community.stats.min_interval} minutes')
             try:
-                posts = self._reddit_reader.get_subreddit_topics(community.ident, mode=community.sorting)
+                # posts = self._reddit_reader.get_subreddit_topics(community.ident, mode=community.sorting)
+                posts = self._reddit_reader.get_subreddit_topics_json(community.ident, mode=community.sorting)
             except BaseException as e:
                 self._logger.error(f"Error trying to retrieve topics: {str(e)}")
                 return
 
+            posts = self.filter_post_threshold(posts, min_ups=self.thresh_votes, min_ratio=self.thresh_ratio)
             posts = self.filter_posted(posts)
 
             # Handle oldest entries first.
@@ -86,10 +91,25 @@ class Syncer:
         else:
             self._logger.debug('No community due for update')
 
+    def filter_post_threshold(self, posts: List[PostDTO], min_ups: int = 2, min_ratio: float = 0.51) -> List[PostDTO]:
+        """Filter through posts, removing everything where upvotes ratio is below stated thresholds"""
+        filtered_posts = []
+        for post in posts:
+            if post.upvotes >= min_ups and post.upvote_ratio >= min_ratio:
+                filtered_posts.append(post)
+                self._logger.debug(f"Post filter pass: (ups: {post.upvotes}, ratio: {post.upvote_ratio}) "
+                                   f"'{post.title[:50]}'")
+            else:
+                self._logger.debug(f"Post filter discard: (ups: {post.upvotes}, ratio: {post.upvote_ratio}) "
+                                   f"'{post.title[:50]}' ")
+        return filtered_posts
+
     def filter_posted(self, posts: List[PostDTO]) -> List[PostDTO]:
         """Filter out any posts that have already been synced to Lemmy (and compensate for both www/old reddit links)"""
         reddit_links = set()
         existing_links = set()
+
+        # Duplicating all urls to contain both www. and old. 🤦
         for post in posts:
             reddit_links.add(post.reddit_link)
             if post.reddit_link.startswith("https://old.reddit"):
@@ -109,6 +129,8 @@ class Syncer:
         for post in posts:
             if post.reddit_link not in existing_links:
                 filtered_posts.append(post)
+            else:
+                self._logger.debug(f"Post already in database: {post.title}")
         return filtered_posts
 
     def clone_to_lemmy(self, post: PostDTO, community: Community):
@@ -180,9 +202,9 @@ class Syncer:
                 self._logger.error(f'NSFW request for "{community}" without NSFW flag, deleting')
                 self._lemmy.create_comment(post_id=post['post']['id'],
                                            content="Requests for NSFW subs should be flagged as NSFW")
+                self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
                 self._lemmy.remove_post(post_id=post['post']['id'], removed=True,
                                         reason="Requests for NSFW subs should be flagged as NSFW")
-                self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
                 continue
 
             try:
