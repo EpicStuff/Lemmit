@@ -49,7 +49,11 @@ class Stats:
             try:
                 data = self._lemmy.community(name=community_stats.community.ident)
             except HTTPError as e:
-                logger.error(f"Error fetching {community_stats.community.ident} stats: {str(e.response)}")
+                logger.warn(f"Error fetching {community_stats.community.ident} stats: {str(e.response)}")
+                if e.response.status_code == 404:
+                    logger.info('Community could not be found, try updating again tomorrow.')
+                    community_stats.last_update = datetime.utcnow() + timedelta(days=1)
+                    self._db.commit()
                 continue
             community_stats.subscribers = data['community_view']['counts']['subscribers']
 

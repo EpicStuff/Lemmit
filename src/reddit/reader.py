@@ -88,7 +88,7 @@ class RedditReader:
 
     def get_post_details(self, post: PostDTO) -> PostDTO:
         """Enrich a PostDTO with all available extra data"""
-        old_url = post.reddit_link.replace('www', 'old')
+        old_url = post.reddit_link.replace('://www', '://old')
         response = self._request('GET', old_url)
 
         if response.status_code == 404:
@@ -111,8 +111,10 @@ class RedditReader:
 
     def get_subreddit_info(self, ident: str) -> Optional[CommunityDTO]:
         sub_url = f"https://old.reddit.com/r/{ident}/"
-        response = self._request('GET', sub_url)
-        if response.status_code != 200:
+        try:
+            response = self._request('GET', sub_url)
+        except HTTPError as e:
+            self.logger.error(f"Something went wrong trying to get subreddit info: {str(e)}")
             return None
 
         soup = BeautifulSoup(response.text, "html.parser")
