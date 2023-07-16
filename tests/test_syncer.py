@@ -49,10 +49,11 @@ class SyncerTestCase(unittest.TestCase):
         self.assertEqual(self.lemmy_api.create_post.call_count, len(TEST_POSTS))
         self.syncer._logger.assert_not_called()
 
-    def test_scrape_new_posts_get_subreddit_topics_error_fails_gracefully(self):
+    def test_scrape_new_posts_get_subreddit_topics_generic_error_fails_gracefully(self):
         # Mock the necessary objects
-        self.reddit_reader.get_subreddit_topics.side_effect = HTTPError("Error")
-        self.reddit_reader.get_subreddit_topics_json.side_effect = HTTPError("Error")
+        base_exception = BaseException("Error")
+        self.reddit_reader.get_subreddit_topics.side_effect = base_exception
+        self.reddit_reader.get_subreddit_topics_json.side_effect = base_exception
 
         # Mock the return value of self.next_scrape_community
         self.syncer.next_scrape_community = MagicMock(return_value=TEST_COMMUNITY)
@@ -65,6 +66,25 @@ class SyncerTestCase(unittest.TestCase):
         self.reddit_reader.get_subreddit_topics_json.assert_called_once_with(TEST_COMMUNITY.ident, mode=SORT_NEW)
         self.lemmy_api.create_post.assert_not_called()
         self.syncer._logger.error.assert_called_once()
+
+    def test_scrape_new_posts_get_subreddit_topics_banned_fails_gracefully(self):
+        # Mock the necessary objects
+        mock_response = MagicMock()
+        mock_response.text = '{"error": "some json stuff about being banned"}'
+        http_exception = HTTPError("Error", response=mock_response)
+        self.reddit_reader.get_subreddit_topics.side_effect = http_exception
+        self.reddit_reader.get_subreddit_topics_json.side_effect = http_exception
+
+        # Mock the return value of self.next_scrape_community
+        self.syncer.next_scrape_community = MagicMock(return_value=TEST_COMMUNITY)
+
+        # Call the method being tested
+        self.syncer.scrape_new_posts()
+
+        # Assert that the appropriate methods were called with the expected arguments
+        self.reddit_reader.get_subreddit_topics_json.assert_called_once_with(TEST_COMMUNITY.ident, mode=SORT_NEW)
+        self.lemmy_api.create_post.assert_not_called()
+        self.syncer._logger.error.assert_called()
 
     def test_scrape_new_posts_get_post_details_error_fails_gracefully(self):
         # Mock the necessary objects

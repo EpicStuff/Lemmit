@@ -62,6 +62,14 @@ class Syncer:
             try:
                 # posts = self._reddit_reader.get_subreddit_topics(community.ident, mode=community.sorting)
                 posts = self._reddit_reader.get_subreddit_topics_json(community.ident, mode=community.sorting)
+            except HTTPError as e:
+                self._logger.error(f"Error trying to retrieve topics: {str(e)}")
+                if 'banned' in e.response.text:
+                    self._logger.error('Subreddit is banned!')
+                    community.last_scrape = datetime.utcnow()
+                    self._db.add(community)
+                    self._db.commit()
+                return
             except BaseException as e:
                 self._logger.error(f"Error trying to retrieve topics: {str(e)}")
                 return

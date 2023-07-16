@@ -40,6 +40,7 @@ class RedditReader:
                 raise RecursionError('Reddit is trying to throw us into an infinite loop :(')
             response = self._request('POST', response.url, {'over18': 'yes'}, allow_recurse=False)
 
+        response.raise_for_status()
         return response
 
     def get_subreddit_topics(self, subreddit: str, mode: str = SORT_HOT, since: datetime = None) -> List[PostDTO]:
@@ -70,7 +71,7 @@ class RedditReader:
 
         posts = []
         response = self._request('GET', feed_url).json();
-        for entry in response.get('data', []).get('children', []):
+        for entry in response.get('data', {}).get('children', {}):
             data = entry.get('data', [])
             posts.append(PostDTO(
                 reddit_link='https://old.reddit.com' + data.get('permalink'),
