@@ -14,7 +14,7 @@ from models.models import PostDTO, SORT_HOT, SORT_NEW, CommunityDTO
 from reddit import USER_AGENT
 from utils.exceptions import HttpNotFoundException
 
-_DELAY_TIME = 3  # This many seconds between requests
+_DELAY_TIME = 2  # This many seconds between requests
 
 
 class RedditReader:
