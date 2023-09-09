@@ -137,7 +137,8 @@ class Stats:
                     Community.created.is_(None),
                     and_(
                         CommunityStats.last_update < stats_threshold_utc,
-                        Community.created <= yesterday_utc
+                        Community.created <= yesterday_utc,
+                        Community.enabled.is_(True)
                     ),
                 )
             )
