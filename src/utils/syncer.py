@@ -47,7 +47,8 @@ class Syncer:
             or_(
                 Community.last_scrape.is_(None),
                 threshold < func.datetime('now')
-            )
+            ),
+            Community.enabled.is_(True)
         ) \
             .order_by(threshold)
         return query.first()
@@ -66,6 +67,11 @@ class Syncer:
                 self._logger.error(f"Error trying to retrieve topics: {str(e)}")
                 if 'banned' in e.response.text:
                     self._logger.error('Subreddit is banned!')
+                    community.last_scrape = datetime.utcnow()
+                    self._db.add(community)
+                    self._db.commit()
+                if 'private' in e.response.text:
+                    self._logger.error('Subreddit is private!')
                     community.last_scrape = datetime.utcnow()
                     self._db.add(community)
                     self._db.commit()
