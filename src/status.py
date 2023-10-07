@@ -48,8 +48,8 @@ def show_communities(as_markdown: bool = False):
 
     def print_markdown():
         host_basename = os.getenv('LEMMY_BASE_URI', 'https://lemmit.online')
-        print("| Ident | Status | Subscribers |")
-        print("|-------|--------|-------------|")
+        print("| Ident | NSFW | Status | Subscribers |")
+        print("|-------|------|--------|-------------|")
         for ident, nsfw, enabled, subscribers in results:
             formatted_ident = f"[{ident}]({host_basename}/c/{ident})"
             print(f"| {formatted_ident}"
