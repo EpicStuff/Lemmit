@@ -12,7 +12,8 @@ from lemmy.api import LemmyAPI
 from models.models import Community, CommunityStats, Post
 
 # Amount of minutes between CommunityStats updates
-COMMUNITY_UPDATE_INTERVAL = 120
+COMMUNITY_UPDATE_INTERVAL = 60 * 4
+DISABLED_COMMUNITY_UPDATE_INTERVAL = 60 * 24 * 2
 
 # Minimum amount of minutes between checks
 INTERVAL_DESERTED = 60 * 24 * 365
@@ -129,17 +130,24 @@ class Stats:
         """Get a batch of CommunityStats that are due for an update, or with an unknown Community creation"""
         yesterday_utc = datetime.utcnow() - timedelta(days=1)
         stats_threshold_utc = datetime.utcnow() - timedelta(minutes=COMMUNITY_UPDATE_INTERVAL)
+        stats_threshold_utc_disabled = datetime.utcnow() - timedelta(minutes=DISABLED_COMMUNITY_UPDATE_INTERVAL)
         query = (
             self._db.query(CommunityStats)
             .join(Community, CommunityStats.community_id == Community.id)
             .filter(
                 or_(
                     Community.created.is_(None),
-                    and_(
-                        CommunityStats.last_update < stats_threshold_utc,
-                        Community.created <= yesterday_utc,
-                        Community.enabled.is_(True)
-                    ),
+                    or_(
+                        and_(
+                            Community.enabled.is_(True),
+                            CommunityStats.last_update < stats_threshold_utc,
+                            Community.created <= yesterday_utc
+                        ),
+                        and_(
+                            Community.enabled.is_(False),
+                            CommunityStats.last_update < stats_threshold_utc_disabled
+                        )
+                    )
                 )
             )
             .order_by(asc(CommunityStats.last_update), asc(CommunityStats.subscribers))
