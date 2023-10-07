@@ -86,7 +86,7 @@ if __name__ == '__main__':
         show_communities(args.markdown)
         sys.exit(0)
 
-    community = db.query(Community).filter_by(ident=args.ident).first()
+    community = db.query(Community).filter(Community.ident.ilike(args.ident)).first()
     if community is None:
         logging.error(f"Community '{args.ident}' not found.")
         sys.exit(1)
