@@ -40,6 +40,7 @@ class RedditReader:
                 raise RecursionError('Reddit is trying to throw us into an infinite loop :(')
             response = self._request('POST', response.url, {'over18': 'yes'}, allow_recurse=False)
 
+        response.raise_for_status()
         return response
 
     def get_subreddit_topics(self, subreddit: str, mode: str = SORT_HOT, since: datetime = None) -> List[PostDTO]:
@@ -58,12 +59,36 @@ class RedditReader:
             author = entry.author if 'author' in entry else '[deleted]'
             if not since or updated > since:
                 posts.append(PostDTO(reddit_link=entry.link, title=entry.title, created=created, updated=updated,
-                                     author=author))
+                                     author=author, upvote_ratio=1.0))
+        return posts
+
+    def get_subreddit_topics_json(self, subreddit: str, mode: str = SORT_HOT, since: datetime = None) -> List[PostDTO]:
+        """Get topics from a subreddit through JSON"""
+        if mode == SORT_NEW:
+            feed_url = f"https://old.reddit.com/r/{subreddit}/new/.json?sort=new"
+        else:
+            feed_url = f"https://old.reddit.com/r/{subreddit}/.json"
+
+        posts = []
+        response = self._request('GET', feed_url).json();
+        for entry in response.get('data', {}).get('children', {}):
+            data = entry.get('data', [])
+            posts.append(PostDTO(
+                reddit_link='https://old.reddit.com' + data.get('permalink'),
+                title=data.get('title'),
+                created=datetime.fromtimestamp(data.get('created_utc')),
+                updated=datetime.fromtimestamp(data.get('created_utc')),
+                author='/u/' + data.get('author'),
+                external_link=data.get('url', None),
+                nsfw=data.get('over_18', None),
+                upvotes=data.get('ups', 1),
+                upvote_ratio=data.get('upvote_ratio', 0.5)
+            ))
         return posts
 
     def get_post_details(self, post: PostDTO) -> PostDTO:
         """Enrich a PostDTO with all available extra data"""
-        old_url = post.reddit_link.replace('www', 'old')
+        old_url = post.reddit_link.replace('://www', '://old')
         response = self._request('GET', old_url)
 
         if response.status_code == 404:
@@ -86,8 +111,10 @@ class RedditReader:
 
     def get_subreddit_info(self, ident: str) -> Optional[CommunityDTO]:
         sub_url = f"https://old.reddit.com/r/{ident}/"
-        response = self._request('GET', sub_url)
-        if response.status_code != 200:
+        try:
+            response = self._request('GET', sub_url)
+        except HTTPError as e:
+            self.logger.error(f"Something went wrong trying to get subreddit info: {str(e)}")
             return None
 
         soup = BeautifulSoup(response.text, "html.parser")
