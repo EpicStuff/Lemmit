@@ -22,7 +22,7 @@ def log_stats(community: Type[Community]):
 def show_communities(as_markdown: bool = False):
     # Query
     results = (
-        db.query(Community.ident, Community.enabled, CommunityStats.subscribers)
+        db.query(Community.ident, Community.nsfw, Community.enabled, CommunityStats.subscribers)
         .join(CommunityStats, Community.id == CommunityStats.community_id)
         .order_by(Community.enabled.desc(), Community.ident)
         .all()
@@ -31,21 +31,31 @@ def show_communities(as_markdown: bool = False):
     def print_cli():
         max_ident = max(len("Ident"), max(len(row[0]) for row in results))
         max_enabled = len("Disabled")
+        max_nsfw = len("NSFW")
         max_subs = max(len("Subscribers"), max(len(str(row[2])) for row in results))
 
         row_format = f"{{0:<{max_ident}}} | {{1:<{max_enabled}}} | {{2:<{max_subs}}}"
-        print(row_format.format("Ident", "Status", "Subscribers"))
-        print('-' * (max_ident + max_enabled + max_subs + 6))  # 6 accounts for " | " separators and end spaces
+        print(row_format.format("Ident", "NSFW", "Status", "Subscribers"))
+        print('-' * (max_ident + max_nsfw + max_enabled + max_subs + 6))  # 9 accounts for separators spacing
 
-        for ident, enabled, subscribers in results:
-            print(row_format.format(ident, 'Enabled' if enabled else 'Disabled', subscribers))
+        for ident, nsfw, enabled, subscribers in results:
+            print(row_format.format(
+                ident,
+                'NSFW' if nsfw else '',
+                'Enabled' if enabled else 'Disabled',
+                subscribers
+            ))
 
     def print_markdown():
+        host_basename = os.getenv('LEMMY_BASE_URI', 'https://lemmit.online')
         print("| Ident | Status | Subscribers |")
         print("|-------|--------|-------------|")
-        for ident, enabled, subscribers in results:
-            formatted_ident = f"[{ident}](https://lemmit.online/c/{ident})"
-            print(f"| {formatted_ident} | {'Enabled' if enabled else 'Disabled'} | {subscribers} |")
+        for ident, nsfw, enabled, subscribers in results:
+            formatted_ident = f"[{ident}]({host_basename}/c/{ident})"
+            print(f"| {formatted_ident}"
+                  f" | {'NSFW' if nsfw else ''}"
+                  f" | {'Enabled' if enabled else 'Disabled'}"
+                  f" | {subscribers} |")
 
     if as_markdown:
         print_markdown()
