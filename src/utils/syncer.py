@@ -222,23 +222,7 @@ class Syncer:
                 continue
 
             try:
-                lemmy_community = self._lemmy.create_community(
-                    name=community.ident,
-                    title=community.title,
-                    description=community.description,
-                    icon=community.icon,
-                    nsfw=community.nsfw,
-                    posting_restricted_to_mods=True
-                )
-                db_community = Community(
-                    lemmy_id=lemmy_community['community_view']['community']['id'],
-                    ident=community.ident,
-                    nsfw=community.nsfw,
-                    enabled=True,
-                    sorting=SORT_HOT
-                )
-                self._db.add(db_community)
-                self._db.commit()
+                self.create_community(community)
             except Exception as e:
                 self._logger.error(f'Error trying to create new community {community}: {str(e)}')
                 self._lemmy.create_comment(
@@ -260,6 +244,25 @@ class Syncer:
             self._lemmy.mark_post_as_read(post_id=post['post']['id'], read=True)
         self.new_sub_check = int(time.time())
         self._logger.info('Done.')
+
+    def create_community(self, community: CommunityDTO):
+        lemmy_community = self._lemmy.create_community(
+            name=community.ident,
+            title=community.title,
+            description=community.description,
+            icon=community.icon,
+            nsfw=community.nsfw,
+            posting_restricted_to_mods=True
+        )
+        db_community = Community(
+            lemmy_id=lemmy_community['community_view']['community']['id'],
+            ident=community.ident,
+            nsfw=community.nsfw,
+            enabled=True,
+            sorting=SORT_HOT
+        )
+        self._db.add(db_community)
+        self._db.commit()
 
     @staticmethod
     def prepare_post(post: PostDTO, community: Community) -> PostDTO:
@@ -301,9 +304,8 @@ The original was posted on [/r/{community.ident}]({old_reddit_link}) by [{post.a
 
         return ret_posts
 
-    def get_community_details_from_request_post(self, post: dict) -> CommunityDTO:
-        """Create a new Lemmy Community based on request post"""
-        # Try and extract the identifier
+    @staticmethod
+    def get_community_ident_from_request_post(post: dict) -> str:
         ident = None
         if post.get('post', []).get('url'):
             try:
@@ -322,6 +324,9 @@ The original was posted on [/r/{community.ident}]({old_reddit_link}) by [{post.a
                 f"(https://old.reddit.com/r/whatever) and `title` (/r/whatever)."
             )
 
+        return ident
+
+    def get_community_details(self, ident: str) -> CommunityDTO:
         # Skip existing
         if self.community_exists(ident):
             raise SubredditRequestException(
@@ -338,6 +343,12 @@ The original was posted on [/r/{community.ident}]({old_reddit_link}) by [{post.a
         self._logger.info(f"Success! Let's clone the sh!t out of {ident}")
 
         return community
+
+    def get_community_details_from_request_post(self, post: dict) -> CommunityDTO:
+        """Create a new Lemmy Community based on request post"""
+        # Try and extract the identifier
+        ident = self.get_community_ident_from_request_post(post)
+        return self.get_community_details(ident)
 
     def community_exists(self, ident: str) -> bool:
         return self._db.query(Community).filter_by(ident=ident).first() is not None
