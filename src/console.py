@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
 import argparse
-import cmd
 import logging
 import os
 import sys
 from typing import Type
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from lemmy.api import LemmyAPI
 from models.models import Community, CommunityStats
+from reddit.reader import RedditReader
+from utils.syncer import Syncer
 
+load_dotenv()
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                     level=os.getenv('LOGLEVEL', logging.INFO))
+
+
+syncer: Syncer
 
 
 def log_stats(community: Type[Community]):
@@ -63,6 +70,11 @@ def show_communities(as_markdown: bool = False):
         print_cli()
 
 
+def add_community(ident: str):
+    community_dto = syncer.get_community_details(ident)
+    syncer.create_community(community_dto)
+
+
 if __name__ == '__main__':
     if not os.getenv('DATABASE_URL'):
         logging.error('Database not found, check env.')
@@ -70,10 +82,17 @@ if __name__ == '__main__':
     engine = create_engine(os.getenv('DATABASE_URL'))
     db = sessionmaker(bind=engine)()
 
+    lemmy_api = LemmyAPI(base_url=os.getenv('LEMMY_BASE_URI'), username=os.getenv('LEMMY_USERNAME'),
+                         password=os.getenv('LEMMY_PASSWORD'))
+    reddit_scraper = RedditReader()
+    syncer = Syncer(db=db, reddit_reader=reddit_scraper, lemmy=lemmy_api, thresh_ratio=1.0, thresh_upvotes=50)
+
     parser = argparse.ArgumentParser(description="List and modify the enabled status of a community")
     subparsers = parser.add_subparsers(dest="command", required=True, help="Commands to manage communities")
     list_parser = subparsers.add_parser('list', help="Give an overview of communities, grouped by status.")
     list_parser.add_argument('--markdown', action='store_true', help='Output list as markdown.')
+    add_parser = subparsers.add_parser('add', help="Add a new community to the bot scraper")
+    add_parser.add_argument('ident', help='The community to add')
     enable_parser = subparsers.add_parser('enable', help="Enable the community.")
     enable_parser.add_argument("ident", help="The community ident.")
     disable_parser = subparsers.add_parser('disable', help="Disable the community.")
@@ -86,7 +105,11 @@ if __name__ == '__main__':
         show_communities(args.markdown)
         sys.exit(0)
 
-    community = db.query(Community).filter_by(ident=args.ident).first()
+    if args.command == 'add':
+        add_community(args.ident)
+        sys.exit(0)
+
+    community = db.query(Community).filter(Community.ident.ilike(args.ident)).first()
     if community is None:
         logging.error(f"Community '{args.ident}' not found.")
         sys.exit(1)

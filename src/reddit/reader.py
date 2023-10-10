@@ -117,6 +117,10 @@ class RedditReader:
             self.logger.error(f"Something went wrong trying to get subreddit info: {str(e)}")
             return None
 
+        if '/subreddits/search' in response.url:
+            self.logger.error(f'Subreddit could not be found')
+            return None
+
         soup = BeautifulSoup(response.text, "html.parser")
 
         icon_elm = soup.select_one('img#header-img[src]')
