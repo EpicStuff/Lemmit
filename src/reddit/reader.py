@@ -35,7 +35,7 @@ class RedditReader:
             time.sleep(self._next_request_after - now)
         self._next_request_after = int(time.time()) + _DELAY_TIME
         response = self.session.request(*args, **kwargs)
-        if 'over18' in response.url:
+        if 'reddit.com/over18' in response.url:
             if not allow_recurse:
                 raise RecursionError('Reddit is trying to throw us into an infinite loop :(')
             response = self._request('POST', response.url, {'over18': 'yes'}, allow_recurse=False)
