@@ -1,2 +1,2 @@
-docker build -t lemmit .
-docker run --env-file .env lemmit
+sudo docker build -t lemmit .
+sudo docker run -d --env-file .env lemmit
