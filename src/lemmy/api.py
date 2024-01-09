@@ -22,6 +22,8 @@ class LemmyAPI:
 
 		if auth_required:
 			self.update_auth()
+			# needed for some reason
+			headers['Authorization'] = f'Bearer {self.__jwt}'
 		if self.__jwt:
 			data['auth'] = self.__jwt
 
