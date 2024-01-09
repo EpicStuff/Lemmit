@@ -14,8 +14,7 @@ class LemmyAPI:
 		self.__password: str = password
 		self.__jwt: str = ''
 
-	def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None,
-					auth_required: bool = True) -> Dict:
+	def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None, auth_required: bool = True) -> Dict:
 		url = f'{self.base_url}/api/{self._API_VERSION_}{endpoint}'
 		headers = {'Content-Type': 'application/json'}
 		data = {} if not data else data
@@ -35,9 +34,7 @@ class LemmyAPI:
 		return response.json()
 
 	def login(self):
-		response = self._make_request('POST', '/user/login',
-									{'username_or_email': self.__username, 'password': self.__password},
-									auth_required=False)
+		response = self._make_request('POST', '/user/login', {'username_or_email': self.__username, 'password': self.__password}, auth_required=False)
 		if not response['jwt']:
 			raise RuntimeError("Could not login", response)
 		self.__jwt = response['jwt']
@@ -48,22 +45,16 @@ class LemmyAPI:
 
 		return self._make_request('POST', '/comment', data, auth_required=True)
 
-	def create_post(self, community_id: int, name: str, body: Optional[str] = None, url: Optional[str] = None,
-					nsfw: bool = False, language_id: int = None) -> Dict:
+	def create_post(self, community_id: int, name: str, body: Optional[str] = None, url: Optional[str] = None, nsfw: bool = False, language_id: int = None) -> Dict:
 		data = {'community_id': community_id, 'name': name}
 
 		self.__update_payload({'body': body, 'url': url, 'nsfw': nsfw, 'language_id': language_id}, data)
 
 		return self._make_request('POST', '/post', data, auth_required=True)
 
-	def create_community(self, name: str, title: str, description: str = None, icon: str = None, nsfw: bool = False,
-						posting_restricted_to_mods: bool = True) -> Dict:
+	def create_community(self, name: str, title: str, description: str = None, icon: str = None, nsfw: bool = False, posting_restricted_to_mods: bool = True) -> Dict:
 		data = {'name': name, 'title': title}
-		self.__update_payload(
-			{'description': description, 'icon': icon, 'nsfw': nsfw,
-			'posting_restricted_to_mods': posting_restricted_to_mods},
-			data
-		)
+		self.__update_payload({'description': description, 'icon': icon, 'nsfw': nsfw, 'posting_restricted_to_mods': posting_restricted_to_mods}, data)
 
 		return self._make_request('POST', '/community', data, auth_required=True)
 
@@ -79,15 +70,12 @@ class LemmyAPI:
 
 		return self._make_request('GET', '/community', data, auth_required=False)
 
-	def get_posts(self, community_name: str = None, community_id: int = None, limit: int = None, page: int = None,
-				sort: str = 'New', auth_required: bool = False) -> Dict:
-		data = self.__update_payload({}, {'community_name': community_name, 'community_id': community_id, 'limit': limit,
-								'page': page, 'sort': sort})
+	def get_posts(self, community_name: str = None, community_id: int = None, limit: int = None, page: int = None, sort: str = 'New', auth_required: bool = False) -> Dict:
+		data = self.__update_payload({}, {'community_name': community_name, 'community_id': community_id, 'limit': limit, 'page': page, 'sort': sort})
 
 		return self._make_request('GET', '/post/list', data=data, auth_required=auth_required)
 
-	def edit_post(self, post_id: int, body: str = None, language_id: int = None, name: str = None, nsfw: bool = None,
-				url: str = None) -> Dict:
+	def edit_post(self, post_id: int, body: str = None, language_id: int = None, name: str = None, nsfw: bool = None, url: str = None) -> Dict:
 		data = {'post_id': post_id}
 		self.__update_payload({body: body, language_id: language_id, name: name, nsfw: nsfw, url: url}, data)
 
