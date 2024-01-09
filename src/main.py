@@ -18,8 +18,7 @@ from utils.syncer import Syncer
 
 syncer: Syncer
 load_dotenv()
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-					level=os.getenv('LOGLEVEL', logging.INFO))
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=os.getenv('LOGLEVEL', logging.INFO))
 keep_running = True
 
 
@@ -56,11 +55,9 @@ if __name__ == '__main__':
 	post_threshold_ratio = float(os.getenv('THRESH_RATIO', 0.5))
 
 	db_session = initialize_database(database_url)
-	lemmy_api = LemmyAPI(base_url=os.getenv('LEMMY_BASE_URI'), username=os.getenv('LEMMY_USERNAME'),
-						password=os.getenv('LEMMY_PASSWORD'))
+	lemmy_api = LemmyAPI(base_url=os.getenv('LEMMY_BASE_URI'), username=os.getenv('LEMMY_USERNAME'), password=os.getenv('LEMMY_PASSWORD'))
 	reddit_scraper = RedditReader()
-	syncer = Syncer(db=db_session, reddit_reader=reddit_scraper, lemmy=lemmy_api, thresh_upvotes=post_threshold_upvotes,
-					thresh_ratio=post_threshold_ratio, request_community=request_community)
+	syncer = Syncer(db=db_session, reddit_reader=reddit_scraper, lemmy=lemmy_api, thresh_upvotes=post_threshold_upvotes, thresh_ratio=post_threshold_ratio, request_community=request_community)
 	stats = Stats(db=db_session, lemmy=lemmy_api)
 
 	if request_community is None:
